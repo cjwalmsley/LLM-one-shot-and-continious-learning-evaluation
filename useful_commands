@@ -1,0 +1,2 @@
+dataset_path="/home/ronin/gdrive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/84/data_sets/squad_dataset_with_generated_sentences.jsonl"
+model_path ="google/gemma-4-E2B"

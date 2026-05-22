@@ -104,10 +104,21 @@ def main():
     )
 
     print("Loading and formatting dataset...")
-    dataset = load_dataset("json", data_files=expanded_dataset_path, split="train")
+    # Load dataset without specifying split to get all examples
+    dataset = load_dataset("json", data_files=expanded_dataset_path)
+    dataset = dataset["train"]  # Get the train split from the loaded dataset
 
-    # Map the formatting function to the dataset
-    dataset = dataset.map(lambda x: format_prompt(x, tokenizer))
+    # Split dataset based on is_pretraining flag
+    print("Splitting dataset based on is_pretraining flag...")
+    train_dataset = dataset.filter(lambda x: x.get("is_pretraining", False) == True)
+    test_dataset = dataset.filter(lambda x: x.get("is_pretraining", False) == False)
+
+    print(f"Training dataset size: {len(train_dataset)}")
+    print(f"Test dataset size: {len(test_dataset)}")
+
+    # Map the formatting function to both datasets
+    train_dataset = train_dataset.map(lambda x: format_prompt(x, tokenizer))
+    test_dataset = test_dataset.map(lambda x: format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
     training_args = SFTConfig(
@@ -131,7 +142,8 @@ def main():
     print("Initializing SFTTrainer...")
     trainer = SFTTrainer(
         model=model,
-        train_dataset=dataset,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset if len(test_dataset) > 0 else None,
         peft_config=peft_config,
         processing_class=tokenizer,
         args=training_args,

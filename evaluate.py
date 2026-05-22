@@ -7,6 +7,8 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 from rapidfuzz import fuzz
+
+
 def get_device():
     """
     Detect and return the appropriate device for the system.
@@ -28,6 +30,33 @@ def get_device():
     else:
         print("✓ No GPU detected, using CPU")
         return "cpu"
+
+
+
+def _load_tokenizer_and_model(model_path, model_id, device):
+    adapter_path = os.path.join(model_path, "final-adapter")
+    print("Loading tokenizer and model...")
+    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
+
+    if device == "cpu":
+        base_model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="cpu",
+            torch_dtype=torch.float32,
+        )
+    else:
+        base_model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16,
+        )
+
+    model = PeftModel.from_pretrained(base_model, adapter_path)
+    model.eval()
+    return tokenizer, model
+
+
+
 def generate_response(model, tokenizer, context, question, device, max_length=256):
     """
     Generate a response from the model given context and question.
@@ -63,11 +92,17 @@ def generate_response(model, tokenizer, context, question, device, max_length=25
     if "assistant" in response:
         response = response.split("assistant")[-1].strip()
     return response
+
+
+
 def exact_match(predicted, ground_truth):
     """
     Check for exact string match (case-insensitive).
     """
     return predicted.strip().lower() == ground_truth.strip().lower()
+
+
+
 def fuzzy_match(predicted, ground_truth, threshold=80):
     """
     Check for fuzzy string match using token_set_ratio.
@@ -75,33 +110,17 @@ def fuzzy_match(predicted, ground_truth, threshold=80):
     """
     score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
     return score >= threshold
-def evaluate_model(model_path, dataset_path, output_dir):
+
+
+
+def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
     """
     Evaluate the fine-tuned model on the training dataset.
     """
     # Detect device
     device = get_device()
-    print("Loading tokenizer and model...")
-    tokenizer = AutoTokenizer.from_pretrained(f"{model_path}/final-adapter")
+    tokenizer, model = _load_tokenizer_and_model(model_path, model_id, device)
 
-    # Load base model with device_map="auto" for proper memory management
-    # This allows accelerate to handle CPU offloading if needed
-    if device == "cpu":
-        model = AutoModelForCausalLM.from_pretrained(
-            "google/gemma-4-E2B",
-            device_map="cpu",
-            torch_dtype=torch.float32
-        )
-    else:
-        # For GPU (CUDA/ROCm), use device_map="auto" for automatic memory management
-        model = AutoModelForCausalLM.from_pretrained(
-            "google/gemma-4-E2B",
-            device_map="auto",
-            torch_dtype=torch.float16
-        )
-    model.eval()
-    # Note: Do NOT call model.to(device) when device_map="auto" is used
-    # accelerate handles device placement automatically
     print("Loading dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
     dataset = dataset["train"]
@@ -183,11 +202,15 @@ def evaluate_model(model_path, dataset_path, output_dir):
     print(f"Fuzzy Match Accuracy: {fuzzy_match_count}/{total_samples} ({fuzzy_accuracy:.2f}%)")
     print("="*60 + "\n")
     return summary
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="Evaluate fine-tuned LLM model")
     parser.add_argument("--model_path", type=str, required=True, help="Path to the directory containing the fine-tuned model")
     parser.add_argument("--dataset_path", type=str, required=True, help="Path to the JSONL dataset file")
     parser.add_argument("--output_dir", type=str, default="evaluation_results", help="Directory to save evaluation results")
+    parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID used for the adapter")
     args = parser.parse_args()
     # Expand user paths
     model_path = os.path.expanduser(args.model_path)
@@ -198,6 +221,8 @@ def main():
         raise FileNotFoundError(f"Model path not found: {model_path}")
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset path not found: {dataset_path}")
-    evaluate_model(model_path, dataset_path, output_dir)
+    evaluate_model(model_path, dataset_path, output_dir, model_id=args.model_id)
+
+
 if __name__ == "__main__":
     main()

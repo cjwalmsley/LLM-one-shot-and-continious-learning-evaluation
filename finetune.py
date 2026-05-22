@@ -9,6 +9,7 @@ import argparse
 import os
 import subprocess
 from dotenv import load_dotenv
+import sys
 
 
 def format_prompt(example, tokenizer):
@@ -166,8 +167,11 @@ def main():
     # Get the absolute path to evaluate.py (same directory as this script)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     evaluate_script = os.path.join(script_dir, "evaluate.py")
+    if not os.path.exists(evaluate_script):
+        print(f"Warning: evaluate.py script not found at: {evaluate_script}. Skipping evaluation.")
+        return
     eval_cmd = [
-        "python", evaluate_script,
+        sys.executable, evaluate_script,
         "--model_path", expanded_output_dir,
         "--dataset_path", expanded_dataset_path,
         "--output_dir", eval_output_dir
@@ -176,8 +180,8 @@ def main():
         subprocess.run(eval_cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Warning: Evaluation script failed with error: {e}")
-    except FileNotFoundError:
-        print("Warning: evaluate.py script not found. Skipping evaluation.")
+    except FileNotFoundError as e:
+        print(f"Warning: Failed to launch evaluation: {e}")
 
 
 if __name__ == "__main__":

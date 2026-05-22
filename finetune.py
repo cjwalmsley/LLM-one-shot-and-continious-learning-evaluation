@@ -6,6 +6,7 @@ from transformers import (
 from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 import argparse
+import os
 
 
 def format_prompt(example, tokenizer):
@@ -47,6 +48,17 @@ def main():
         dataset_path = args.dataset_path
         output_dir = "gemma4-qa-finetune"
 
+    #check if the dataset_path exists
+    expanded_dataset_path = os.path.expanduser(dataset_path)
+    if not os.path.exists(expanded_dataset_path):
+        raise FileNotFoundError(f"Dataset file not found at: {expanded_dataset_path}")
+
+    #check if the output_dir exists, create it if it doesn't
+    expanded_output_dir = os.path.expanduser(output_dir)
+    if not os.path.exists(expanded_output_dir):
+        os.makedirs(expanded_output_dir)
+        print(f"Created output directory: {expanded_output_dir}")
+
     print(f"Loading tokenizer for {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     # Gemma models generally do not define a pad token by default
@@ -84,7 +96,7 @@ def main():
 
     print("Setting up training arguments...")
     training_args = SFTConfig(
-        output_dir=output_dir,
+        output_dir=expanded_output_dir,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         warmup_steps=10,
@@ -114,8 +126,8 @@ def main():
     trainer.train()
 
     print("Training complete. Saving the LoRA adapter...")
-    trainer.model.save_pretrained(f"{output_dir}/final-adapter")
-    tokenizer.save_pretrained(f"{output_dir}/final-adapter")
+    trainer.model.save_pretrained(f"{expanded_output_dir}/final-adapter")
+    tokenizer.save_pretrained(f"{expanded_output_dir}/final-adapter")
     print("Done!")
 
 

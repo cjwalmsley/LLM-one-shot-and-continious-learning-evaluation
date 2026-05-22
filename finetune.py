@@ -7,6 +7,7 @@ from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 import argparse
 import os
+import subprocess
 from dotenv import load_dotenv
 
 
@@ -58,7 +59,7 @@ def main():
     #if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
     if experiment:
         dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
-        output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/model_id"
+        output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
     else:
         dataset_path = args.dataset_path
         output_dir = "gemma4-qa-finetune"
@@ -156,6 +157,27 @@ def main():
     trainer.model.save_pretrained(f"{expanded_output_dir}/final-adapter")
     tokenizer.save_pretrained(f"{expanded_output_dir}/final-adapter")
     print("Done!")
+
+    # Run evaluation
+    print("\n" + "="*60)
+    print("Starting model evaluation...")
+    print("="*60)
+    eval_output_dir = f"{expanded_output_dir}/evaluation"
+    # Get the absolute path to evaluate.py (same directory as this script)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    evaluate_script = os.path.join(script_dir, "evaluate.py")
+    eval_cmd = [
+        "python", evaluate_script,
+        "--model_path", expanded_output_dir,
+        "--dataset_path", expanded_dataset_path,
+        "--output_dir", eval_output_dir
+    ]
+    try:
+        subprocess.run(eval_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Evaluation script failed with error: {e}")
+    except FileNotFoundError:
+        print("Warning: evaluate.py script not found. Skipping evaluation.")
 
 
 if __name__ == "__main__":

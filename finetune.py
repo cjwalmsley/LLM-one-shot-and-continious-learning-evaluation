@@ -7,6 +7,7 @@ from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 import argparse
 import os
+from dotenv import load_dotenv
 
 
 def format_prompt(example, tokenizer):
@@ -35,6 +36,20 @@ def main():
     parser.add_argument("--dataset_path", type=str, default="sample_dataset.jsonl", help="The filepath of the dataset file to load")
     parser.add_argument("--experiment", type=str, default=None, help="The name of the experiment that the finetuning dataset is from")
     args = parser.parse_args()
+
+    # Load environment variables from .env file
+    if os.path.exists(".env"):
+        load_dotenv(".env")
+    else:
+        print("Warning: .env file not found.")
+
+    # Ensure HF_TOKEN is set
+    if not os.environ.get("HF_TOKEN"):
+        raise EnvironmentError(
+            "Error: HF_TOKEN environment variable is not set.\n"
+            "Please add it to your .env file:\n"
+            "  HF_TOKEN=your_huggingface_token"
+        )
 
     model_id = args.model_id
 

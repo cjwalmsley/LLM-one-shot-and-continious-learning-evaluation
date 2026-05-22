@@ -38,7 +38,9 @@ class TestFinetune(unittest.TestCase):
         ]
         mock_tokenizer.apply_chat_template.assert_called_once_with(expected_messages, tokenize=False)
 
+    @patch.dict('os.environ', {'HF_TOKEN': 'test_token'})
     @patch('sys.argv', ['finetune.py', '--model_id', 'custom-model-id', '--dataset_path', 'custom_dataset.jsonl'])
+    @patch('finetune.load_dotenv')
     @patch('finetune.os.makedirs')
     @patch('finetune.os.path.exists')
     @patch('finetune.AutoTokenizer')
@@ -48,7 +50,7 @@ class TestFinetune(unittest.TestCase):
     @patch('finetune.SFTTrainer')
     @patch('finetune.SFTConfig')
     def test_main(self, mock_sft_config, mock_sft_trainer, mock_load_dataset,
-                  mock_prepare_model, mock_auto_model, mock_auto_tokenizer, mock_path_exists, mock_makedirs):
+                  mock_prepare_model, mock_auto_model, mock_auto_tokenizer, mock_path_exists, mock_makedirs, mock_load_dotenv):
         # Arrange
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()

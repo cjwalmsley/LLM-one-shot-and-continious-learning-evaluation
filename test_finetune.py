@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from finetune_gemma4 import format_prompt, main
+from finetune import format_prompt, main
 
 
-class TestFinetuneGemma4(unittest.TestCase):
+class TestFinetune(unittest.TestCase):
     def test_format_prompt(self):
         # Arrange
         mock_tokenizer = MagicMock()
@@ -38,13 +38,13 @@ class TestFinetuneGemma4(unittest.TestCase):
         ]
         mock_tokenizer.apply_chat_template.assert_called_once_with(expected_messages, tokenize=False)
 
-    @patch('sys.argv', ['finetune_gemma4.py', '--model_id', 'custom-model-id', '--dataset_path', 'custom_dataset.jsonl'])
-    @patch('finetune_gemma4.AutoTokenizer')
-    @patch('finetune_gemma4.AutoModelForCausalLM')
-    @patch('finetune_gemma4.prepare_model_for_kbit_training')
-    @patch('finetune_gemma4.load_dataset')
-    @patch('finetune_gemma4.SFTTrainer')
-    @patch('finetune_gemma4.SFTConfig')
+    @patch('sys.argv', ['finetune.py', '--model_id', 'custom-model-id', '--dataset_path', 'custom_dataset.jsonl'])
+    @patch('finetune.AutoTokenizer')
+    @patch('finetune.AutoModelForCausalLM')
+    @patch('finetune.prepare_model_for_kbit_training')
+    @patch('finetune.load_dataset')
+    @patch('finetune.SFTTrainer')
+    @patch('finetune.SFTConfig')
     def test_main(self, mock_sft_config, mock_sft_trainer, mock_load_dataset,
                   mock_prepare_model, mock_auto_model, mock_auto_tokenizer):
         # Arrange

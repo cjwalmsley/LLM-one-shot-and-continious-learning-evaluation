@@ -32,11 +32,20 @@ def main():
     parser = argparse.ArgumentParser(description="Finetune Gemma model")
     parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="The model to be finetuned")
     parser.add_argument("--dataset_path", type=str, default="sample_dataset.jsonl", help="The filepath of the dataset file to load")
+    parser.add_argument("--experiment", type=str, default=None, help="The name of the experiment that the finetuning dataset is from")
     args = parser.parse_args()
 
     model_id = args.model_id
-    dataset_path = args.dataset_path
-    output_dir = "./gemma4-qa-finetune"
+
+    experiment = args.experiment
+
+    #if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
+    if experiment:
+        dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/squad_dataset_with_generated_sentences.jsonl"
+        output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/model_id"
+    else:
+        dataset_path = args.dataset_path
+        output_dir = "gemma4-qa-finetune"
 
     print(f"Loading tokenizer for {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)

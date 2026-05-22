@@ -104,7 +104,7 @@ def main():
     )
 
     print("Loading and formatting dataset...")
-    dataset = load_dataset("json", data_files=dataset_path, split="train")
+    dataset = load_dataset("json", data_files=expanded_dataset_path, split="train")
 
     # Map the formatting function to the dataset
     dataset = dataset.map(lambda x: format_prompt(x, tokenizer))

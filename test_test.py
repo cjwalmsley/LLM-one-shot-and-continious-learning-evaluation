@@ -1,0 +1,158 @@
+import unittest
+from unittest.mock import MagicMock, patch
+import json
+import os
+import tempfile
+import test as test_module
+
+
+class TestGetDevice(unittest.TestCase):
+    def test_get_device_prefers_cuda(self):
+        with patch.object(test_module.torch.cuda, "is_available", return_value=True), \
+            patch.object(test_module.torch.cuda, "get_device_name", return_value="NVIDIA A100"), \
+            patch.object(test_module.torch.backends.mps, "is_available", return_value=False):
+            self.assertEqual(test_module.get_device(), "cuda")
+
+    def test_get_device_uses_mps_when_no_cuda(self):
+        with patch.object(test_module.torch.cuda, "is_available", return_value=False), \
+            patch.object(test_module.torch.backends.mps, "is_available", return_value=True):
+            self.assertEqual(test_module.get_device(), "mps")
+
+    def test_get_device_falls_back_to_cpu(self):
+        with patch.object(test_module.torch.cuda, "is_available", return_value=False), \
+            patch.object(test_module.torch.backends.mps, "is_available", return_value=False):
+            self.assertEqual(test_module.get_device(), "cpu")
+
+
+class TestLoadTokenizerAndModel(unittest.TestCase):
+    @patch("test.PeftModel")
+    @patch("test.AutoModelForCausalLM")
+    @patch("test.AutoTokenizer")
+    def test_load_tokenizer_and_model_cpu(self, mock_tokenizer_cls, mock_model_cls, mock_peft_cls):
+        mock_tokenizer = MagicMock()
+        mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
+        mock_base_model = MagicMock()
+        mock_model_cls.from_pretrained.return_value = mock_base_model
+        mock_peft = MagicMock()
+        mock_peft_cls.from_pretrained.return_value = mock_peft
+
+        tokenizer, model = test_module._load_tokenizer_and_model("/tmp/model", "base-id", "cpu")
+
+        self.assertIs(tokenizer, mock_tokenizer)
+        self.assertIs(model, mock_peft)
+        mock_model_cls.from_pretrained.assert_called_with(
+            "base-id",
+            device_map="cpu",
+            torch_dtype=test_module.torch.float32,
+        )
+        mock_peft.eval.assert_called_once_with()
+
+
+class TestGenerateResponse(unittest.TestCase):
+    def test_generate_response_strips_assistant_prefix(self):
+        tokenizer = MagicMock()
+        tokenizer.apply_chat_template.return_value = "prompt"
+        tokenizer.return_value = {"input_ids": test_module.torch.tensor([[1, 2, 3]])}
+        tokenizer.decode.return_value = "assistant final answer"
+        tokenizer.eos_token_id = 2
+
+        model = MagicMock()
+        model.generate.return_value = test_module.torch.tensor([[10, 11, 12]])
+
+        response = test_module.generate_response(
+            model,
+            tokenizer,
+            context="Context",
+            question="Question?",
+            device="cpu",
+            max_length=16,
+        )
+
+        self.assertEqual(response, "final answer")
+
+
+class TestExactMatch(unittest.TestCase):
+    def test_exact_match_is_case_insensitive(self):
+        self.assertTrue(test_module.exact_match("YES", "yes"))
+
+    def test_exact_match_trims_whitespace(self):
+        self.assertTrue(test_module.exact_match("  yes  ", "yes"))
+
+    def test_exact_match_returns_false_for_different_strings(self):
+        self.assertFalse(test_module.exact_match("yes", "no"))
+
+
+class TestFuzzyMatch(unittest.TestCase):
+    def test_fuzzy_match_identical_strings(self):
+        self.assertTrue(test_module.fuzzy_match("reactor core safe", "reactor core safe"))
+
+    def test_fuzzy_match_returns_false_for_unrelated_strings(self):
+        self.assertFalse(test_module.fuzzy_match("apple", "banana"))
+
+
+class TestTestModel(unittest.TestCase):
+    @patch("test.get_device", return_value="cpu")
+    @patch("test._load_tokenizer_and_model")
+    @patch("test.load_dataset")
+    def test_model_returns_none_when_no_samples(self, mock_load_dataset, mock_load_model, mock_device):
+        mock_load_model.return_value = (MagicMock(), MagicMock())
+        mock_dataset = MagicMock()
+        mock_dataset_train = MagicMock()
+        mock_dataset.__getitem__.return_value = mock_dataset_train
+        mock_load_dataset.return_value = mock_dataset
+        mock_dataset_train.filter.return_value = []
+
+        result = test_module.test_model("/tmp/model", "/tmp/data.jsonl", "/tmp/out")
+
+        self.assertIsNone(result)
+        mock_load_model.assert_called_once()
+
+    @patch("test.generate_response")
+    @patch("test.get_device", return_value="cpu")
+    @patch("test._load_tokenizer_and_model")
+    @patch("test.load_dataset")
+    def test_model_writes_outputs_and_summary(self, mock_load_dataset, mock_load_model, mock_device, mock_generate):
+        mock_load_model.return_value = (MagicMock(), MagicMock())
+        mock_dataset = MagicMock()
+        mock_dataset_train = MagicMock()
+        mock_dataset.__getitem__.return_value = mock_dataset_train
+        mock_load_dataset.return_value = mock_dataset
+
+        sample_records = [
+            {
+                "declarative_statement": "Context A",
+                "question": "Question A?",
+                "answer": "Answer A",
+                "is_pretraining": False,
+            },
+            {
+                "declarative_statement": "Context B",
+                "question": "Question B?",
+                "answer": "Answer B",
+                "is_pretraining": False,
+            },
+        ]
+        mock_dataset_train.filter.return_value = sample_records
+        mock_generate.side_effect = ["Answer A", "Answer B"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = test_module.test_model(tmpdir, os.path.join(tmpdir, "data.jsonl"), tmpdir)
+
+            self.assertEqual(summary["total_test_samples"], 2)
+            self.assertEqual(summary["exact_match"]["count"], 2)
+            self.assertEqual(summary["fuzzy_match"]["count"], 2)
+
+            results_file = os.path.join(tmpdir, "test_results.jsonl")
+            summary_file = os.path.join(tmpdir, "test_summary.json")
+
+            self.assertTrue(os.path.exists(results_file))
+            self.assertTrue(os.path.exists(summary_file))
+
+            with open(summary_file, "r") as handle:
+                saved_summary = json.load(handle)
+            self.assertEqual(saved_summary["total_test_samples"], 2)
+
+
+if __name__ == "__main__":
+    unittest.main()
+

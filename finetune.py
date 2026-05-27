@@ -6,6 +6,7 @@ from transformers import (
 from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 from evaluate import evaluate_model
+from test import test_model
 import argparse
 import os
 from dotenv import load_dotenv
@@ -189,6 +190,21 @@ def main():
         )
     except Exception as e:
         print(f"Warning: Evaluation failed with error: {e}")
+
+    # Run testing on unseen data
+    print("\n" + "=" * 60)
+    print("Starting formal testing phase...")
+    print("=" * 60)
+    test_output_dir = f"{expanded_output_dir}/testing"
+    try:
+        test_model(
+            expanded_output_dir,
+            expanded_dataset_path,
+            test_output_dir,
+            model_id=model_id,
+        )
+    except Exception as e:
+        print(f"Warning: Testing failed with error: {e}")
 
 
 if __name__ == "__main__":

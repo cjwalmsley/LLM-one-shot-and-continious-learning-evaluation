@@ -32,7 +32,6 @@ def get_device():
         return "cpu"
 
 
-
 def _load_tokenizer_and_model(model_path, model_id, device):
     adapter_path = os.path.join(model_path, "final-adapter")
     print("Loading tokenizer and model...")
@@ -56,16 +55,12 @@ def _load_tokenizer_and_model(model_path, model_id, device):
     return tokenizer, model
 
 
-
 def generate_response(model, tokenizer, context, question, device, max_length=256):
     """
     Generate a response from the model given context and question.
     """
     messages = [
-        {
-            "role": "user",
-            "content": f"Context: {context}\n\nQuestion: {question}"
-        }
+        {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
     ]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False)
     # Tokenize - when using device_map="auto", keep inputs on CPU initially
@@ -78,10 +73,10 @@ def generate_response(model, tokenizer, context, question, device, max_length=25
     outputs = model.generate(
         **inputs,
         max_length=max_length,
-        temperature=1.0,
+        temperature=0,
         top_p=0.95,
         top_k=64,
-        do_sample=True,
+        do_sample=False,
         pad_token_id=tokenizer.eos_token_id,
     )
     # Move output to CPU for decoding if needed
@@ -94,13 +89,11 @@ def generate_response(model, tokenizer, context, question, device, max_length=25
     return response
 
 
-
 def exact_match(predicted, ground_truth):
     """
     Check for exact string match (case-insensitive).
     """
     return predicted.strip().lower() == ground_truth.strip().lower()
-
 
 
 def fuzzy_match(predicted, ground_truth, threshold=80):
@@ -110,7 +103,6 @@ def fuzzy_match(predicted, ground_truth, threshold=80):
     """
     score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
     return score >= threshold
-
 
 
 def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
@@ -150,7 +142,7 @@ def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-
             "ground_truth": ground_truth,
             "predicted": predicted,
             "exact_match": exact,
-            "fuzzy_match": fuzzy
+            "fuzzy_match": fuzzy,
         }
         results.append(result)
         # Print progress
@@ -158,8 +150,12 @@ def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-
             print(f"  Evaluated {idx + 1}/{len(train_dataset)} samples")
     # Calculate accuracy
     total_samples = len(train_dataset)
-    exact_accuracy = (exact_match_count / total_samples) * 100 if total_samples > 0 else 0
-    fuzzy_accuracy = (fuzzy_match_count / total_samples) * 100 if total_samples > 0 else 0
+    exact_accuracy = (
+        (exact_match_count / total_samples) * 100 if total_samples > 0 else 0
+    )
+    fuzzy_accuracy = (
+        (fuzzy_match_count / total_samples) * 100 if total_samples > 0 else 0
+    )
     # Create summary statistics
     summary = {
         "timestamp": datetime.now().isoformat(),
@@ -169,12 +165,12 @@ def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-
         "total_samples": total_samples,
         "exact_match": {
             "count": exact_match_count,
-            "accuracy": f"{exact_accuracy:.2f}%"
+            "accuracy": f"{exact_accuracy:.2f}%",
         },
         "fuzzy_match": {
             "count": fuzzy_match_count,
-            "accuracy": f"{fuzzy_accuracy:.2f}%"
-        }
+            "accuracy": f"{fuzzy_accuracy:.2f}%",
+        },
     }
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
@@ -190,27 +186,47 @@ def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-
         json.dump(summary, f, indent=2)
     print(f"Summary statistics saved to: {summary_file}")
     # Display summary statistics
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("EVALUATION SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(f"Device: {device}")
     print(f"Model Path: {model_path}")
     print(f"Dataset Path: {dataset_path}")
     print(f"Total Samples Evaluated: {total_samples}")
-    print("-"*60)
-    print(f"Exact Match Accuracy: {exact_match_count}/{total_samples} ({exact_accuracy:.2f}%)")
-    print(f"Fuzzy Match Accuracy: {fuzzy_match_count}/{total_samples} ({fuzzy_accuracy:.2f}%)")
-    print("="*60 + "\n")
+    print("-" * 60)
+    print(
+        f"Exact Match Accuracy: {exact_match_count}/{total_samples} ({exact_accuracy:.2f}%)"
+    )
+    print(
+        f"Fuzzy Match Accuracy: {fuzzy_match_count}/{total_samples} ({fuzzy_accuracy:.2f}%)"
+    )
+    print("=" * 60 + "\n")
     return summary
-
 
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate fine-tuned LLM model")
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the directory containing the fine-tuned model")
-    parser.add_argument("--dataset_path", type=str, required=True, help="Path to the JSONL dataset file")
-    parser.add_argument("--output_dir", type=str, default="evaluation_results", help="Directory to save evaluation results")
-    parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID used for the adapter")
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        required=True,
+        help="Path to the directory containing the fine-tuned model",
+    )
+    parser.add_argument(
+        "--dataset_path", type=str, required=True, help="Path to the JSONL dataset file"
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="evaluation_results",
+        help="Directory to save evaluation results",
+    )
+    parser.add_argument(
+        "--model_id",
+        type=str,
+        default="google/gemma-4-E2B",
+        help="Base model ID used for the adapter",
+    )
     args = parser.parse_args()
     # Expand user paths
     model_path = os.path.expanduser(args.model_path)

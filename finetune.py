@@ -18,24 +18,36 @@ def format_prompt(example, tokenizer):
     messages = [
         {
             "role": "user",
-            "content": f"Context: {example['declarative_statement']}\n\nQuestion: {example['question']}"
+            "content": f"Context: {example['declarative_statement']}\n\nQuestion: {example['question']}",
         },
-        {
-            "role": "assistant",
-            "content": example['answer']
-        }
+        {"role": "assistant", "content": example["answer"]},
     ]
     return {"text": tokenizer.apply_chat_template(messages, tokenize=False)}
 
 
 def main():
 
-#   python finetune_gemma4.py --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl"
+    #   python finetune_gemma4.py --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl"
 
     parser = argparse.ArgumentParser(description="Finetune Gemma model")
-    parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="The model to be finetuned")
-    parser.add_argument("--dataset_path", type=str, default="sample_dataset.jsonl", help="The filepath of the dataset file to load")
-    parser.add_argument("--experiment", type=str, default=None, help="The name of the experiment that the finetuning dataset is from")
+    parser.add_argument(
+        "--model_id",
+        type=str,
+        default="google/gemma-4-E2B",
+        help="The model to be finetuned",
+    )
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        default="sample_dataset.jsonl",
+        help="The filepath of the dataset file to load",
+    )
+    parser.add_argument(
+        "--experiment",
+        type=str,
+        default=None,
+        help="The name of the experiment that the finetuning dataset is from",
+    )
     args = parser.parse_args()
 
     # Load environment variables from .env file
@@ -56,7 +68,7 @@ def main():
 
     experiment = args.experiment
 
-    #if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
+    # if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
     if experiment:
         dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
         output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
@@ -64,12 +76,12 @@ def main():
         dataset_path = args.dataset_path
         output_dir = "gemma4-qa-finetune"
 
-    #check if the dataset_path exists
+    # check if the dataset_path exists
     expanded_dataset_path = os.path.expanduser(dataset_path)
     if not os.path.exists(expanded_dataset_path):
         raise FileNotFoundError(f"Dataset file not found at: {expanded_dataset_path}")
 
-    #check if the output_dir exists, create it if it doesn't
+    # check if the output_dir exists, create it if it doesn't
     expanded_output_dir = os.path.expanduser(output_dir)
     if not os.path.exists(expanded_output_dir):
         os.makedirs(expanded_output_dir)
@@ -85,10 +97,7 @@ def main():
         tokenizer.chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\n'}}{% endif %}"
 
     print("Loading model...")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        device_map="auto"
-    )
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
 
     # Prepare model for LoRA training
     model = prepare_model_for_kbit_training(model)
@@ -101,7 +110,15 @@ def main():
         bias="none",
         task_type="CAUSAL_LM",
         # Target modules common to Gemma architectures
-        target_modules=["q_proj.linear", "k_proj.linear", "v_proj.linear", "o_proj.linear", "gate_proj.linear", "up_proj.linear", "down_proj.linear"]
+        target_modules=[
+            "q_proj.linear",
+            "k_proj.linear",
+            "v_proj.linear",
+            "o_proj.linear",
+            "gate_proj.linear",
+            "up_proj.linear",
+            "down_proj.linear",
+        ],
     )
 
     print("Loading and formatting dataset...")
@@ -144,7 +161,7 @@ def main():
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
-        eval_dataset=test_dataset if len(test_dataset) > 0 else None,
+        eval_dataset=None,
         peft_config=peft_config,
         processing_class=tokenizer,
         args=training_args,
@@ -159,9 +176,9 @@ def main():
     print("Done!")
 
     # Run evaluation
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Starting model evaluation...")
-    print("="*60)
+    print("=" * 60)
     eval_output_dir = f"{expanded_output_dir}/evaluation"
     try:
         evaluate_model(

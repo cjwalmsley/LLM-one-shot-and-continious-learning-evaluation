@@ -37,6 +37,10 @@ def _load_tokenizer_and_model(model_path, model_id, device):
     print("Loading tokenizer and model for testing...")
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
+    # Ensure chat template exists and pad token is set
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map="cpu" if device == "cpu" else "auto",
@@ -48,15 +52,13 @@ def _load_tokenizer_and_model(model_path, model_id, device):
     return tokenizer, model
 
 
-def generate_response(model, tokenizer, context, question, device, max_length=256):
+def generate_response(model, tokenizer, messages, device, max_length=256):
     """
-    Generate a deterministic response using greedy decoding.
+    Generate a deterministic response using a list of conversation messages.
     """
-    messages = [
-        {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
-    ]
-    prompt = tokenizer.apply_chat_template(messages, tokenize=False)
-
+    prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
     inputs = tokenizer(prompt, return_tensors="pt")
 
     if device != "cpu":
@@ -64,22 +66,20 @@ def generate_response(model, tokenizer, context, question, device, max_length=25
         if str(target_device) != "meta":
             inputs = {key: value.to(target_device) for key, value in inputs.items()}
 
-    # Deterministic generation for factual testing
+    input_length = inputs["input_ids"].shape[1]
+
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
-            max_length=max_length,
-            do_sample=False,  # Greedy decoding for exact testing
+            max_length=input_length + max_length,
+            do_sample=False,  # Greedy decoding for factual testing
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    if outputs.device.type != "cpu":
-        outputs = outputs.cpu()
+    # Slice the output to only extract the newly generated tokens
+    new_tokens = outputs[0][input_length:]
+    response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-    if "assistant" in response:
-        response = response.split("assistant")[-1].strip()
     return response
 
 
@@ -92,50 +92,38 @@ def fuzzy_match(predicted, ground_truth, threshold=80):
     return score >= threshold
 
 
-def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
+def run_mode_1(model, tokenizer, test_dataset, device):
     """
-    Run formal testing on the unseen test dataset.
+    Mode 1: Prompt model with Context and Question simultaneously. (Isolated Memory)
     """
-    device = get_device()
-    tokenizer, model = _load_tokenizer_and_model(model_path, model_id, device)
-
-    print("Loading test dataset...")
-    dataset = load_dataset("json", data_files=dataset_path)
-    dataset = dataset["train"]
-
-    # Filter strictly for unseen test examples
-    test_dataset = dataset.filter(lambda x: x.get("is_pretraining", False) == False)
-
-    total_samples = len(test_dataset)
-    if total_samples == 0:
-        print("Warning: No test samples found (is_pretraining=False). Exiting.")
-        return None
-
-    print(f"Testing on {total_samples} unseen samples...")
+    print("\n--- Running Mode 1: Context + Question (Isolated) ---")
     results = []
-    exact_match_count = 0
-    fuzzy_match_count = 0
+    exact_count, fuzzy_count = 0, 0
+    total = len(test_dataset)
 
     for idx, sample in enumerate(test_dataset):
         context = sample.get("declarative_statement", "")
         question = sample.get("question", "")
         ground_truth = sample.get("answer", "")
 
-        predicted = generate_response(model, tokenizer, context, question, device)
+        messages = [
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
+        ]
+
+        predicted = generate_response(model, tokenizer, messages, device)
 
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
         if exact:
-            exact_match_count += 1
+            exact_count += 1
         if fuzzy:
-            fuzzy_match_count += 1
+            fuzzy_count += 1
 
         results.append(
             {
                 "sample_id": idx,
-                "context": context,
-                "question": question,
+                "mode": 1,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
                 "exact_match": exact,
@@ -144,34 +132,118 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
         )
 
         if (idx + 1) % 10 == 0:
-            print(f"  Processed {idx + 1}/{total_samples} test samples")
+            print(f"  Processed {idx + 1}/{total} samples (Mode 1)")
 
-    exact_accuracy = (exact_match_count / total_samples) * 100
-    fuzzy_accuracy = (fuzzy_match_count / total_samples) * 100
+    return results, exact_count, fuzzy_count
+
+
+def run_mode_2(model, tokenizer, test_dataset, device):
+    """
+    Mode 2: Two-pass continuous context. (Working Memory)
+    Pass 1: Load all declarative statements into history.
+    Pass 2: Ask all questions based on the accumulated history.
+    """
+    print("\n--- Running Mode 2: Continuous Context (Working Memory) ---")
+    results = []
+    exact_count, fuzzy_count = 0, 0
+    total = len(test_dataset)
+    messages = []
+
+    print("  Pass 1: Loading declarative statements into context...")
+    for idx, sample in enumerate(test_dataset):
+        statement = sample.get("declarative_statement", "")
+        messages.append(
+            {"role": "user", "content": f"Please remember this fact: {statement}"}
+        )
+        # We must prompt the model to register the interaction in the chat history
+        reply = generate_response(model, tokenizer, messages, device, max_length=50)
+        messages.append({"role": "assistant", "content": reply})
+
+        if (idx + 1) % 10 == 0:
+            print(f"    Loaded {idx + 1}/{total} statements")
+
+    print("  Pass 2: Prompting questions from continuous context...")
+    for idx, sample in enumerate(test_dataset):
+        question = sample.get("question", "")
+        ground_truth = sample.get("answer", "")
+
+        messages.append({"role": "user", "content": question})
+        predicted = generate_response(model, tokenizer, messages, device)
+        messages.append({"role": "assistant", "content": predicted})
+
+        exact = exact_match(predicted, ground_truth)
+        fuzzy = fuzzy_match(predicted, ground_truth)
+
+        if exact:
+            exact_count += 1
+        if fuzzy:
+            fuzzy_count += 1
+
+        results.append(
+            {
+                "sample_id": idx,
+                "mode": 2,
+                "ground_truth": ground_truth,
+                "predicted": predicted,
+                "exact_match": exact,
+                "fuzzy_match": fuzzy,
+            }
+        )
+
+        if (idx + 1) % 10 == 0:
+            print(f"    Answered {idx + 1}/{total} questions")
+
+    return results, exact_count, fuzzy_count
+
+
+def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
+    """
+    Main testing pipeline executing both Mode 1 and Mode 2.
+    """
+    device = get_device()
+    tokenizer, model = _load_tokenizer_and_model(model_path, model_id, device)
+
+    print("Loading test dataset...")
+    dataset = load_dataset("json", data_files=dataset_path)
+    dataset = dataset["train"]
+    test_dataset = dataset.filter(lambda x: x.get("is_pretraining", False) == False)
+
+    total_samples = len(test_dataset)
+    if total_samples == 0:
+        print("Warning: No test samples found. Exiting.")
+        return None
+
+    print(f"Total unseen samples for testing: {total_samples}")
+
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # --- Execute Mode 1 ---
+    results_m1, exact_m1, fuzzy_m1 = run_mode_1(model, tokenizer, test_dataset, device)
+
+    # --- Execute Mode 2 ---
+    results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device)
+
+    # --- Save & Summarize ---
+    all_results = results_m1 + results_m2
+    results_file = os.path.join(output_dir, "test_results.jsonl")
+    with open(results_file, "w") as f:
+        for res in all_results:
+            f.write(json.dumps(res) + "\n")
 
     summary = {
         "timestamp": datetime.now().isoformat(),
-        "phase": "test",
         "device": str(device),
-        "model_path": model_path,
-        "dataset_path": dataset_path,
         "total_test_samples": total_samples,
-        "exact_match": {
-            "count": exact_match_count,
-            "accuracy": f"{exact_accuracy:.2f}%",
+        "mode_1_isolated": {
+            "exact_match_accuracy": f"{(exact_m1 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%",
         },
-        "fuzzy_match": {
-            "count": fuzzy_match_count,
-            "accuracy": f"{fuzzy_accuracy:.2f}%",
+        "mode_2_continuous": {
+            "exact_match_accuracy": f"{(exact_m2 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m2 / total_samples) * 100:.2f}%",
         },
     }
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    results_file = os.path.join(output_dir, "test_results.jsonl")
-    with open(results_file, "w") as f:
-        for result in results:
-            f.write(json.dumps(result) + "\n")
 
     summary_file = os.path.join(output_dir, "test_summary.json")
     with open(summary_file, "w") as f:
@@ -181,15 +253,22 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
     print("TESTING SUMMARY (UNSEEN DATA)")
     print("=" * 60)
     print(f"Total Test Samples: {total_samples}")
+    print("\n[Mode 1: Context + Question (Isolated)]")
     print(
-        f"Exact Match Accuracy: {exact_match_count}/{total_samples} ({exact_accuracy:.2f}%)"
+        f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
     )
     print(
-        f"Fuzzy Match Accuracy: {fuzzy_match_count}/{total_samples} ({fuzzy_accuracy:.2f}%)"
+        f"Fuzzy Match: {fuzzy_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
+    )
+
+    print("\n[Mode 2: Continuous Context (Working Memory)]")
+    print(
+        f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
+    )
+    print(
+        f"Fuzzy Match: {fuzzy_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
     )
     print("=" * 60 + "\n")
-
-    return summary
 
 
 def main():
@@ -219,11 +298,6 @@ def main():
     model_path = os.path.expanduser(args.model_path)
     dataset_path = os.path.expanduser(args.dataset_path)
     output_dir = os.path.expanduser(args.output_dir)
-
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model path not found: {model_path}")
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(f"Dataset path not found: {dataset_path}")
 
     test_model(model_path, dataset_path, output_dir, model_id=args.model_id)
 

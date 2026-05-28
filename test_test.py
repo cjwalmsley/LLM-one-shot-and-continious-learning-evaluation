@@ -49,26 +49,65 @@ class TestLoadTokenizerAndModel(unittest.TestCase):
 
 
 class TestGenerateResponse(unittest.TestCase):
-    def test_generate_response_strips_assistant_prefix(self):
+    def test_generate_response_returns_decoded_text(self):
         tokenizer = MagicMock()
         tokenizer.apply_chat_template.return_value = "prompt"
         tokenizer.return_value = {"input_ids": test_module.torch.tensor([[1, 2, 3]])}
-        tokenizer.decode.return_value = "assistant final answer"
+        tokenizer.decode.return_value = "final answer"
         tokenizer.eos_token_id = 2
 
         model = MagicMock()
-        model.generate.return_value = test_module.torch.tensor([[10, 11, 12]])
+        model.generate.return_value = test_module.torch.tensor([[1, 2, 3, 4, 5]])
 
         response = test_module.generate_response(
             model,
             tokenizer,
-            context="Context",
-            question="Question?",
+            messages=[{"role": "user", "content": "Question?"}],
             device="cpu",
             max_length=16,
         )
 
         self.assertEqual(response, "final answer")
+        tokenizer.apply_chat_template.assert_called_once_with(
+            [{"role": "user", "content": "Question?"}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+
+class TestRunMode2(unittest.TestCase):
+    def test_run_mode_2_records_results_and_pass2_questions(self):
+        sample_records = [
+            {
+                "declarative_statement": "Context A",
+                "question": "Question A?",
+                "answer": "Answer A",
+            },
+            {
+                "declarative_statement": "Context B",
+                "question": "Question B?",
+                "answer": "Answer B",
+            },
+        ]
+        model = MagicMock()
+        tokenizer = MagicMock()
+
+        with patch("test.generate_response") as mock_generate:
+            mock_generate.side_effect = ["ok", "ok", "Answer A", "Answer B"]
+            results, exact_count, fuzzy_count = test_module.run_mode_2(
+                model, tokenizer, sample_records, "cpu"
+            )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(exact_count, 2)
+        self.assertEqual(fuzzy_count, 2)
+        self.assertEqual(results[0]["mode"], 2)
+        self.assertEqual(results[1]["predicted"], "Answer B")
+
+        self.assertEqual(mock_generate.call_args_list[0].kwargs["max_length"], 50)
+        self.assertEqual(mock_generate.call_args_list[1].kwargs["max_length"], 50)
+        self.assertNotIn("max_length", mock_generate.call_args_list[2].kwargs)
+        self.assertNotIn("max_length", mock_generate.call_args_list[3].kwargs)
 
 
 class TestExactMatch(unittest.TestCase):
@@ -107,11 +146,19 @@ class TestTestModel(unittest.TestCase):
         self.assertIsNone(result)
         mock_load_model.assert_called_once()
 
-    @patch("test.generate_response")
+    @patch("test.run_mode_2")
+    @patch("test.run_mode_1")
     @patch("test.get_device", return_value="cpu")
     @patch("test._load_tokenizer_and_model")
     @patch("test.load_dataset")
-    def test_model_writes_outputs_and_summary(self, mock_load_dataset, mock_load_model, mock_device, mock_generate):
+    def test_model_writes_outputs_and_summary(
+        self,
+        mock_load_dataset,
+        mock_load_model,
+        mock_device,
+        mock_run_mode_1,
+        mock_run_mode_2,
+    ):
         mock_load_model.return_value = (MagicMock(), MagicMock())
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
@@ -133,14 +180,42 @@ class TestTestModel(unittest.TestCase):
             },
         ]
         mock_dataset_train.filter.return_value = sample_records
-        mock_generate.side_effect = ["Answer A", "Answer B"]
+
+        mock_run_mode_1.return_value = (
+            [
+                {
+                    "sample_id": 0,
+                    "mode": 1,
+                    "ground_truth": "Answer A",
+                    "predicted": "Answer A",
+                    "exact_match": True,
+                    "fuzzy_match": True,
+                }
+            ],
+            1,
+            1,
+        )
+        mock_run_mode_2.return_value = (
+            [
+                {
+                    "sample_id": 1,
+                    "mode": 2,
+                    "ground_truth": "Answer B",
+                    "predicted": "Answer B",
+                    "exact_match": True,
+                    "fuzzy_match": True,
+                }
+            ],
+            1,
+            1,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            summary = test_module.test_model(tmpdir, os.path.join(tmpdir, "data.jsonl"), tmpdir)
+            result = test_module.test_model(
+                tmpdir, os.path.join(tmpdir, "data.jsonl"), tmpdir
+            )
 
-            self.assertEqual(summary["total_test_samples"], 2)
-            self.assertEqual(summary["exact_match"]["count"], 2)
-            self.assertEqual(summary["fuzzy_match"]["count"], 2)
+            self.assertIsNone(result)
 
             results_file = os.path.join(tmpdir, "test_results.jsonl")
             summary_file = os.path.join(tmpdir, "test_summary.json")
@@ -148,9 +223,20 @@ class TestTestModel(unittest.TestCase):
             self.assertTrue(os.path.exists(results_file))
             self.assertTrue(os.path.exists(summary_file))
 
+            with open(results_file, "r") as handle:
+                results_lines = handle.readlines()
+            self.assertEqual(len(results_lines), 2)
+
             with open(summary_file, "r") as handle:
                 saved_summary = json.load(handle)
+
             self.assertEqual(saved_summary["total_test_samples"], 2)
+            self.assertEqual(
+                saved_summary["mode_1_isolated"]["exact_match_accuracy"], "50.00%"
+            )
+            self.assertEqual(
+                saved_summary["mode_2_continuous"]["fuzzy_match_accuracy"], "50.00%"
+            )
 
 
 if __name__ == "__main__":

@@ -1,19 +1,17 @@
 import argparse
 import json
 import os
+import gc
 import torch
 from datetime import datetime
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
+from peft import PeftModel, prepare_model_for_kbit_training
+from trl import SFTTrainer, SFTConfig
 from rapidfuzz import fuzz
 
-
 def get_device():
-    """
-    Detect and return the appropriate device.
-    Explicitly checks for AMD/ROCm compatibility.
-    """
+    """Detect and return the appropriate device (AMD ROCm compatible)."""
     if torch.cuda.is_available():
         try:
             device_name = torch.cuda.get_device_name(0)
@@ -31,34 +29,33 @@ def get_device():
         print("✓ No GPU detected, using CPU")
         return "cpu"
 
-
-def _load_tokenizer_and_model(model_path, model_id, device):
-    adapter_path = os.path.join(model_path, "final-adapter")
-    print("Loading tokenizer and model for testing...")
+def _load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False):
+    """Loads the base model and attaches the specified adapter."""
+    print(f"Loading tokenizer and model from {adapter_path}...")
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
-    # Ensure chat template exists and pad token is set
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map="cpu" if device == "cpu" else "auto",
-        torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     )
 
-    model = PeftModel.from_pretrained(base_model, adapter_path)
-    model.eval()
+    if is_trainable:
+        base_model = prepare_model_for_kbit_training(base_model)
+
+    model = PeftModel.from_pretrained(base_model, adapter_path, is_trainable=is_trainable)
+
+    if not is_trainable:
+        model.eval()
+
     return tokenizer, model
 
-
 def generate_response(model, tokenizer, messages, device, max_length=256):
-    """
-    Generate a deterministic response using a list of conversation messages.
-    """
-    prompt = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
+    """Generate a deterministic response using greedy decoding."""
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(prompt, return_tensors="pt")
 
     if device != "cpu":
@@ -72,31 +69,24 @@ def generate_response(model, tokenizer, messages, device, max_length=256):
         outputs = model.generate(
             **inputs,
             max_length=input_length + max_length,
-            do_sample=False,  # Greedy decoding for factual testing
+            do_sample=False,
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    # Slice the output to only extract the newly generated tokens
     new_tokens = outputs[0][input_length:]
     response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-
     return response
-
 
 def exact_match(predicted, ground_truth):
     return predicted.strip().lower() == ground_truth.strip().lower()
-
 
 def fuzzy_match(predicted, ground_truth, threshold=80):
     score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
     return score >= threshold
 
-
 def run_mode_1(model, tokenizer, test_dataset, device):
-    """
-    Mode 1: Prompt model with Context and Question simultaneously. (Isolated Memory)
-    """
-    print("\n--- Running Mode 1: Context + Question (Isolated) ---")
+    """Mode 1: Prompt model with Context and Question simultaneously."""
+    print("\n--- Running Mode 1: Context + Question (Isolated Memory) ---")
     results = []
     exact_count, fuzzy_count = 0, 0
     total = len(test_dataset)
@@ -106,43 +96,25 @@ def run_mode_1(model, tokenizer, test_dataset, device):
         question = sample.get("question", "")
         ground_truth = sample.get("answer", "")
 
-        messages = [
-            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
-        ]
-
+        messages = [{"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}]
         predicted = generate_response(model, tokenizer, messages, device)
 
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
-        if exact:
-            exact_count += 1
-        if fuzzy:
-            fuzzy_count += 1
+        if exact: exact_count += 1
+        if fuzzy: fuzzy_count += 1
 
-        results.append(
-            {
-                "sample_id": idx,
-                "mode": 1,
-                "ground_truth": ground_truth,
-                "predicted": predicted,
-                "exact_match": exact,
-                "fuzzy_match": fuzzy,
-            }
-        )
-
-        if (idx + 1) % 10 == 0:
-            print(f"  Processed {idx + 1}/{total} samples (Mode 1)")
+        results.append({
+            "sample_id": idx, "mode": 1, "ground_truth": ground_truth,
+            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
+        })
+        if (idx + 1) % 10 == 0: print(f"  Processed {idx + 1}/{total} samples")
 
     return results, exact_count, fuzzy_count
 
-
 def run_mode_2(model, tokenizer, test_dataset, device):
-    """
-    Mode 2: Two-pass continuous context. (Working Memory)
-    Pass 1: Load all declarative statements into history.
-    Pass 2: Ask all questions based on the accumulated history.
-    """
+    """Mode 2: Two-pass continuous context (Working Memory)."""
     print("\n--- Running Mode 2: Continuous Context (Working Memory) ---")
     results = []
     exact_count, fuzzy_count = 0, 0
@@ -152,80 +124,148 @@ def run_mode_2(model, tokenizer, test_dataset, device):
     print("  Pass 1: Loading declarative statements into context...")
     for idx, sample in enumerate(test_dataset):
         statement = sample.get("declarative_statement", "")
-        messages.append(
-            {"role": "user", "content": f"Please remember this fact: {statement}"}
-        )
-        # We must prompt the model to register the interaction in the chat history
+        messages.append({"role": "user", "content": f"Please remember this fact: {statement}"})
         reply = generate_response(model, tokenizer, messages, device, max_length=50)
         messages.append({"role": "assistant", "content": reply})
-
-        if (idx + 1) % 10 == 0:
-            print(f"    Loaded {idx + 1}/{total} statements")
 
     print("  Pass 2: Prompting questions from continuous context...")
     for idx, sample in enumerate(test_dataset):
         question = sample.get("question", "")
         ground_truth = sample.get("answer", "")
 
-        messages.append({"role": "user", "content": question})
+        messages.append({"role": "user", "content": f"Question: {question}"})
         predicted = generate_response(model, tokenizer, messages, device)
         messages.append({"role": "assistant", "content": predicted})
 
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
-        if exact:
-            exact_count += 1
-        if fuzzy:
-            fuzzy_count += 1
+        if exact: exact_count += 1
+        if fuzzy: fuzzy_count += 1
 
-        results.append(
-            {
-                "sample_id": idx,
-                "mode": 2,
-                "ground_truth": ground_truth,
-                "predicted": predicted,
-                "exact_match": exact,
-                "fuzzy_match": fuzzy,
-            }
-        )
-
-        if (idx + 1) % 10 == 0:
-            print(f"    Answered {idx + 1}/{total} questions")
+        results.append({
+            "sample_id": idx, "mode": 2, "ground_truth": ground_truth,
+            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
+        })
+        if (idx + 1) % 10 == 0: print(f"    Answered {idx + 1}/{total} questions")
 
     return results, exact_count, fuzzy_count
 
+def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device, test_dataset):
+    """Mode 3: Parametric Memory Consolidation (Secondary Fine-Tuning)."""
+    print("\n--- Running Mode 3: Parametric Memory (Weights Fine-Tuning) ---")
+
+    # Format dataset to only include the declarative statements for training
+    def format_mode3_train(example):
+        return {"text": example["declarative_statement"]}
+
+    mode3_train_data = test_dataset.map(format_mode3_train)
+    mode3_adapter_dir = os.path.join(output_dir, "mode3_adapter")
+
+    print("  Pass 1: Fine-tuning weights on declarative statements...")
+    tokenizer, trainable_model = _load_tokenizer_and_model(original_adapter_path, model_id, device, is_trainable=True)
+
+    training_args = SFTConfig(
+        output_dir=mode3_adapter_dir,
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
+        num_train_epochs=1, # One pass to prevent catastrophic forgetting of QA format
+        learning_rate=2e-5,
+        bf16=True, # Native AMD speed
+        optim="adamw_torch",
+        dataset_text_field="text",
+        max_length=256,
+        report_to="none",
+    )
+
+    trainer = SFTTrainer(
+        model=trainable_model,
+        train_dataset=mode3_train_data,
+        peft_config=None, # It is already a PeftModel
+        processing_class=tokenizer,
+        args=training_args,
+    )
+
+    trainer.train()
+    trainer.model.save_pretrained(mode3_adapter_dir)
+    tokenizer.save_pretrained(mode3_adapter_dir)
+
+    # ---------------------------------------------------------
+    # CRITICAL: Teardown graph and clear VRAM before inference
+    # ---------------------------------------------------------
+    del trainer
+    del trainable_model
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    print("  Pass 2: Evaluating questions using updated parametric weights...")
+    # Load the newly trained adapter in evaluation mode
+    tokenizer, eval_model = _load_tokenizer_and_model(mode3_adapter_dir, model_id, device, is_trainable=False)
+
+    results = []
+    exact_count, fuzzy_count = 0, 0
+    total = len(test_dataset)
+
+    for idx, sample in enumerate(test_dataset):
+        question = sample.get("question", "")
+        ground_truth = sample.get("answer", "")
+
+        # Prompt model with JUST the question (no context)
+        messages = [{"role": "user", "content": f"Question: {question}"}]
+        predicted = generate_response(eval_model, tokenizer, messages, device)
+
+        exact = exact_match(predicted, ground_truth)
+        fuzzy = fuzzy_match(predicted, ground_truth)
+
+        if exact: exact_count += 1
+        if fuzzy: fuzzy_count += 1
+
+        results.append({
+            "sample_id": idx, "mode": 3, "ground_truth": ground_truth,
+            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
+        })
+        if (idx + 1) % 10 == 0: print(f"    Answered {idx + 1}/{total} questions")
+
+    # Cleanup post-evaluation
+    del eval_model
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    return results, exact_count, fuzzy_count
 
 def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
-    """
-    Main testing pipeline executing both Mode 1 and Mode 2.
-    """
+    """Main testing pipeline executing Modes 1, 2, and 3."""
     device = get_device()
-    tokenizer, model = _load_tokenizer_and_model(model_path, model_id, device)
 
     print("Loading test dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
-    dataset = dataset["train"]
-    test_dataset = dataset.filter(lambda x: x.get("is_pretraining", False) == False)
+    test_dataset = dataset["train"].filter(lambda x: x.get("is_pretraining", False) == False)
 
     total_samples = len(test_dataset)
     if total_samples == 0:
         print("Warning: No test samples found. Exiting.")
         return None
 
-    print(f"Total unseen samples for testing: {total_samples}")
-
-    # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
+    original_adapter = os.path.join(model_path, "final-adapter")
 
-    # --- Execute Mode 1 ---
+    # Load base model for Modes 1 & 2
+    tokenizer, model = _load_tokenizer_and_model(original_adapter, model_id, device)
+
+    # Execute Mode 1 & 2
     results_m1, exact_m1, fuzzy_m1 = run_mode_1(model, tokenizer, test_dataset, device)
-
-    # --- Execute Mode 2 ---
     results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device)
 
-    # --- Save & Summarize ---
-    all_results = results_m1 + results_m2
+    # Free memory before triggering Mode 3 training
+    del model
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    # Execute Mode 3
+    results_m3, exact_m3, fuzzy_m3 = run_mode_3(original_adapter, dataset_path, output_dir, model_id, device, test_dataset)
+
+    # Save & Summarize
+    all_results = results_m1 + results_m2 + results_m3
     results_file = os.path.join(output_dir, "test_results.jsonl")
     with open(results_file, "w") as f:
         for res in all_results:
@@ -237,62 +277,43 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
         "total_test_samples": total_samples,
         "mode_1_isolated": {
             "exact_match_accuracy": f"{(exact_m1 / total_samples) * 100:.2f}%",
-            "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%"
         },
         "mode_2_continuous": {
             "exact_match_accuracy": f"{(exact_m2 / total_samples) * 100:.2f}%",
-            "fuzzy_match_accuracy": f"{(fuzzy_m2 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m2 / total_samples) * 100:.2f}%"
         },
+        "mode_3_parametric": {
+            "exact_match_accuracy": f"{(exact_m3 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m3 / total_samples) * 100:.2f}%"
+        }
     }
 
     summary_file = os.path.join(output_dir, "test_summary.json")
     with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
 
-    print("\n" + "=" * 60)
+    print("\n" + "="*60)
     print("TESTING SUMMARY (UNSEEN DATA)")
-    print("=" * 60)
+    print("="*60)
     print(f"Total Test Samples: {total_samples}")
+
     print("\n[Mode 1: Context + Question (Isolated)]")
-    print(
-        f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
-    )
-    print(
-        f"Fuzzy Match: {fuzzy_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
-    )
+    print(f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})")
 
     print("\n[Mode 2: Continuous Context (Working Memory)]")
-    print(
-        f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
-    )
-    print(
-        f"Fuzzy Match: {fuzzy_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
-    )
-    print("=" * 60 + "\n")
+    print(f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})")
 
+    print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning)]")
+    print(f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})")
+    print("="*60 + "\n")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Test fine-tuned LLM model on unseen data"
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        required=True,
-        help="Directory containing the fine-tuned model",
-    )
-    parser.add_argument(
-        "--dataset_path", type=str, required=True, help="JSONL dataset file"
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="test_results",
-        help="Directory for test results",
-    )
-    parser.add_argument(
-        "--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID"
-    )
+    parser = argparse.ArgumentParser(description="Test fine-tuned LLM model on unseen data")
+    parser.add_argument("--model_path", type=str, required=True, help="Directory containing the fine-tuned model")
+    parser.add_argument("--dataset_path", type=str, required=True, help="JSONL dataset file")
+    parser.add_argument("--output_dir", type=str, default="test_results", help="Directory for test results")
+    parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID")
     args = parser.parse_args()
 
     model_path = os.path.expanduser(args.model_path)
@@ -300,7 +321,6 @@ def main():
     output_dir = os.path.expanduser(args.output_dir)
 
     test_model(model_path, dataset_path, output_dir, model_id=args.model_id)
-
 
 if __name__ == "__main__":
     main()

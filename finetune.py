@@ -6,7 +6,7 @@ from transformers import (
 from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 from evaluate import evaluate_model
-from test import test_model
+import subprocess
 import argparse
 import os
 from dotenv import load_dotenv
@@ -191,17 +191,31 @@ def main():
     except Exception as e:
         print(f"Warning: Evaluation failed with error: {e}")
 
-    # Run testing on unseen data
+    # Run testing on unseen data via subprocess to isolate VRAM
     print("\n" + "=" * 60)
     print("Starting formal testing phase...")
     print("=" * 60)
     test_output_dir = f"{expanded_output_dir}/testing"
+
     try:
-        test_model(
-            expanded_output_dir,
-            expanded_dataset_path,
-            test_output_dir,
-            model_id=model_id,
+        subprocess.run(
+            [
+                "python",
+                "test.py",
+                "--model_path",
+                expanded_output_dir,
+                "--dataset_path",
+                expanded_dataset_path,
+                "--output_dir",
+                test_output_dir,
+                "--model_id",
+                model_id,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Warning: Testing failed. Subprocess exited with error code: {e.returncode}"
         )
     except Exception as e:
         print(f"Warning: Testing failed with error: {e}")

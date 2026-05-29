@@ -144,8 +144,9 @@ class TestTestModel(unittest.TestCase):
         result = test_module.test_model("/tmp/model", "/tmp/data.jsonl", "/tmp/out")
 
         self.assertIsNone(result)
-        mock_load_model.assert_called_once()
+        mock_load_model.assert_not_called()
 
+    @patch("test.run_mode_3")
     @patch("test.run_mode_2")
     @patch("test.run_mode_1")
     @patch("test.get_device", return_value="cpu")
@@ -158,6 +159,7 @@ class TestTestModel(unittest.TestCase):
         mock_device,
         mock_run_mode_1,
         mock_run_mode_2,
+        mock_run_mode_3,
     ):
         mock_load_model.return_value = (MagicMock(), MagicMock())
         mock_dataset = MagicMock()
@@ -209,6 +211,20 @@ class TestTestModel(unittest.TestCase):
             1,
             1,
         )
+        mock_run_mode_3.return_value = (
+            [
+                {
+                    "sample_id": 2,
+                    "mode": 3,
+                    "ground_truth": "Answer C",
+                    "predicted": "Answer C",
+                    "exact_match": True,
+                    "fuzzy_match": True,
+                }
+            ],
+            1,
+            1,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = test_module.test_model(
@@ -216,6 +232,14 @@ class TestTestModel(unittest.TestCase):
             )
 
             self.assertIsNone(result)
+            mock_run_mode_3.assert_called_once_with(
+                os.path.join(tmpdir, "final-adapter"),
+                os.path.join(tmpdir, "data.jsonl"),
+                tmpdir,
+                "google/gemma-4-E2B",
+                "cpu",
+                sample_records,
+            )
 
             results_file = os.path.join(tmpdir, "test_results.jsonl")
             summary_file = os.path.join(tmpdir, "test_summary.json")
@@ -225,7 +249,7 @@ class TestTestModel(unittest.TestCase):
 
             with open(results_file, "r") as handle:
                 results_lines = handle.readlines()
-            self.assertEqual(len(results_lines), 2)
+            self.assertEqual(len(results_lines), 3)
 
             with open(summary_file, "r") as handle:
                 saved_summary = json.load(handle)

@@ -10,6 +10,7 @@ from peft import PeftModel, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 from rapidfuzz import fuzz
 
+
 def get_device():
     """Detect and return the appropriate device (AMD ROCm compatible)."""
     if torch.cuda.is_available():
@@ -29,6 +30,7 @@ def get_device():
         print("✓ No GPU detected, using CPU")
         return "cpu"
 
+
 def _load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False):
     """Loads the base model and attaches the specified adapter."""
     print(f"Loading tokenizer and model from {adapter_path}...")
@@ -46,16 +48,21 @@ def _load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False
     if is_trainable:
         base_model = prepare_model_for_kbit_training(base_model)
 
-    model = PeftModel.from_pretrained(base_model, adapter_path, is_trainable=is_trainable)
+    model = PeftModel.from_pretrained(
+        base_model, adapter_path, is_trainable=is_trainable
+    )
 
     if not is_trainable:
         model.eval()
 
     return tokenizer, model
 
+
 def generate_response(model, tokenizer, messages, device, max_length=256):
     """Generate a deterministic response using greedy decoding."""
-    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
     inputs = tokenizer(prompt, return_tensors="pt")
 
     if device != "cpu":
@@ -77,12 +84,15 @@ def generate_response(model, tokenizer, messages, device, max_length=256):
     response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
     return response
 
+
 def exact_match(predicted, ground_truth):
     return predicted.strip().lower() == ground_truth.strip().lower()
+
 
 def fuzzy_match(predicted, ground_truth, threshold=80):
     score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
     return score >= threshold
+
 
 def run_mode_1(model, tokenizer, test_dataset, device):
     """Mode 1: Prompt model with Context and Question simultaneously."""
@@ -96,22 +106,34 @@ def run_mode_1(model, tokenizer, test_dataset, device):
         question = sample.get("question", "")
         ground_truth = sample.get("answer", "")
 
-        messages = [{"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}]
+        messages = [
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
+        ]
         predicted = generate_response(model, tokenizer, messages, device)
 
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
-        if exact: exact_count += 1
-        if fuzzy: fuzzy_count += 1
+        if exact:
+            exact_count += 1
+        if fuzzy:
+            fuzzy_count += 1
 
-        results.append({
-            "sample_id": idx, "mode": 1, "ground_truth": ground_truth,
-            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
-        })
-        if (idx + 1) % 10 == 0: print(f"  Processed {idx + 1}/{total} samples")
+        results.append(
+            {
+                "sample_id": idx,
+                "mode": 1,
+                "ground_truth": ground_truth,
+                "predicted": predicted,
+                "exact_match": exact,
+                "fuzzy_match": fuzzy,
+            }
+        )
+        if (idx + 1) % 10 == 0:
+            print(f"  Processed {idx + 1}/{total} samples")
 
     return results, exact_count, fuzzy_count
+
 
 def run_mode_2(model, tokenizer, test_dataset, device):
     """Mode 2: Two-pass continuous context (Working Memory)."""
@@ -124,7 +146,9 @@ def run_mode_2(model, tokenizer, test_dataset, device):
     print("  Pass 1: Loading declarative statements into context...")
     for idx, sample in enumerate(test_dataset):
         statement = sample.get("declarative_statement", "")
-        messages.append({"role": "user", "content": f"Please remember this fact: {statement}"})
+        messages.append(
+            {"role": "user", "content": f"Please remember this fact: {statement}"}
+        )
         reply = generate_response(model, tokenizer, messages, device, max_length=50)
         messages.append({"role": "assistant", "content": reply})
 
@@ -140,18 +164,30 @@ def run_mode_2(model, tokenizer, test_dataset, device):
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
-        if exact: exact_count += 1
-        if fuzzy: fuzzy_count += 1
+        if exact:
+            exact_count += 1
+        if fuzzy:
+            fuzzy_count += 1
 
-        results.append({
-            "sample_id": idx, "mode": 2, "ground_truth": ground_truth,
-            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
-        })
-        if (idx + 1) % 10 == 0: print(f"    Answered {idx + 1}/{total} questions")
+        results.append(
+            {
+                "sample_id": idx,
+                "mode": 2,
+                "ground_truth": ground_truth,
+                "predicted": predicted,
+                "exact_match": exact,
+                "fuzzy_match": fuzzy,
+            }
+        )
+        if (idx + 1) % 10 == 0:
+            print(f"    Answered {idx + 1}/{total} questions")
 
     return results, exact_count, fuzzy_count
 
-def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device, test_dataset):
+
+def run_mode_3(
+    original_adapter_path, dataset_path, output_dir, model_id, device, test_dataset
+):
     """Mode 3: Parametric Memory Consolidation (Secondary Fine-Tuning)."""
     print("\n--- Running Mode 3: Parametric Memory (Weights Fine-Tuning) ---")
 
@@ -163,15 +199,17 @@ def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device
     mode3_adapter_dir = os.path.join(output_dir, "mode3_adapter")
 
     print("  Pass 1: Fine-tuning weights on declarative statements...")
-    tokenizer, trainable_model = _load_tokenizer_and_model(original_adapter_path, model_id, device, is_trainable=True)
+    tokenizer, trainable_model = _load_tokenizer_and_model(
+        original_adapter_path, model_id, device, is_trainable=True
+    )
 
     training_args = SFTConfig(
         output_dir=mode3_adapter_dir,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
-        num_train_epochs=1, # One pass to prevent catastrophic forgetting of QA format
+        num_train_epochs=1,  # One pass to prevent catastrophic forgetting of QA format
         learning_rate=2e-5,
-        bf16=True, # Native AMD speed
+        bf16=True,  # Native AMD speed
         optim="adamw_torch",
         dataset_text_field="text",
         max_length=256,
@@ -181,7 +219,7 @@ def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device
     trainer = SFTTrainer(
         model=trainable_model,
         train_dataset=mode3_train_data,
-        peft_config=None, # It is already a PeftModel
+        peft_config=None,  # It is already a PeftModel
         processing_class=tokenizer,
         args=training_args,
     )
@@ -200,7 +238,9 @@ def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device
 
     print("  Pass 2: Evaluating questions using updated parametric weights...")
     # Load the newly trained adapter in evaluation mode
-    tokenizer, eval_model = _load_tokenizer_and_model(mode3_adapter_dir, model_id, device, is_trainable=False)
+    tokenizer, eval_model = _load_tokenizer_and_model(
+        mode3_adapter_dir, model_id, device, is_trainable=False
+    )
 
     results = []
     exact_count, fuzzy_count = 0, 0
@@ -217,14 +257,23 @@ def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device
         exact = exact_match(predicted, ground_truth)
         fuzzy = fuzzy_match(predicted, ground_truth)
 
-        if exact: exact_count += 1
-        if fuzzy: fuzzy_count += 1
+        if exact:
+            exact_count += 1
+        if fuzzy:
+            fuzzy_count += 1
 
-        results.append({
-            "sample_id": idx, "mode": 3, "ground_truth": ground_truth,
-            "predicted": predicted, "exact_match": exact, "fuzzy_match": fuzzy
-        })
-        if (idx + 1) % 10 == 0: print(f"    Answered {idx + 1}/{total} questions")
+        results.append(
+            {
+                "sample_id": idx,
+                "mode": 3,
+                "ground_truth": ground_truth,
+                "predicted": predicted,
+                "exact_match": exact,
+                "fuzzy_match": fuzzy,
+            }
+        )
+        if (idx + 1) % 10 == 0:
+            print(f"    Answered {idx + 1}/{total} questions")
 
     # Cleanup post-evaluation
     del eval_model
@@ -233,13 +282,16 @@ def run_mode_3(original_adapter_path, dataset_path, output_dir, model_id, device
 
     return results, exact_count, fuzzy_count
 
+
 def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B"):
     """Main testing pipeline executing Modes 1, 2, and 3."""
     device = get_device()
 
     print("Loading test dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
-    test_dataset = dataset["train"].filter(lambda x: x.get("is_pretraining", False) == False)
+    test_dataset = dataset["train"].filter(
+        lambda x: x.get("is_pretraining", False) == False
+    )
 
     total_samples = len(test_dataset)
     if total_samples == 0:
@@ -256,13 +308,26 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
     results_m1, exact_m1, fuzzy_m1 = run_mode_1(model, tokenizer, test_dataset, device)
     results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device)
 
-    # Free memory before triggering Mode 3 training
+    print("  [System] Tearing down Mode 1 & 2 computational graph to free VRAM...")
     del model
-    torch.cuda.empty_cache()
+    del tokenizer
+
+    # Use accelerate's deep memory release to clear device_map hooks
+    from accelerate.utils import release_memory
+
+    release_memory()
+
+    # Force Python and PyTorch garbage collection
     gc.collect()
+    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.ipc_collect()
+    # -----------------------------------------
 
     # Execute Mode 3
-    results_m3, exact_m3, fuzzy_m3 = run_mode_3(original_adapter, dataset_path, output_dir, model_id, device, test_dataset)
+    results_m3, exact_m3, fuzzy_m3 = run_mode_3(
+        original_adapter, dataset_path, output_dir, model_id, device, test_dataset
+    )
 
     # Save & Summarize
     all_results = results_m1 + results_m2 + results_m3
@@ -277,43 +342,66 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
         "total_test_samples": total_samples,
         "mode_1_isolated": {
             "exact_match_accuracy": f"{(exact_m1 / total_samples) * 100:.2f}%",
-            "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%"
+            "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%",
         },
         "mode_2_continuous": {
             "exact_match_accuracy": f"{(exact_m2 / total_samples) * 100:.2f}%",
-            "fuzzy_match_accuracy": f"{(fuzzy_m2 / total_samples) * 100:.2f}%"
+            "fuzzy_match_accuracy": f"{(fuzzy_m2 / total_samples) * 100:.2f}%",
         },
         "mode_3_parametric": {
             "exact_match_accuracy": f"{(exact_m3 / total_samples) * 100:.2f}%",
-            "fuzzy_match_accuracy": f"{(fuzzy_m3 / total_samples) * 100:.2f}%"
-        }
+            "fuzzy_match_accuracy": f"{(fuzzy_m3 / total_samples) * 100:.2f}%",
+        },
     }
 
     summary_file = os.path.join(output_dir, "test_summary.json")
     with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TESTING SUMMARY (UNSEEN DATA)")
-    print("="*60)
+    print("=" * 60)
     print(f"Total Test Samples: {total_samples}")
 
     print("\n[Mode 1: Context + Question (Isolated)]")
-    print(f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})")
+    print(
+        f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
+    )
 
     print("\n[Mode 2: Continuous Context (Working Memory)]")
-    print(f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})")
+    print(
+        f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
+    )
 
     print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning)]")
-    print(f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})")
-    print("="*60 + "\n")
+    print(
+        f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})"
+    )
+    print("=" * 60 + "\n")
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Test fine-tuned LLM model on unseen data")
-    parser.add_argument("--model_path", type=str, required=True, help="Directory containing the fine-tuned model")
-    parser.add_argument("--dataset_path", type=str, required=True, help="JSONL dataset file")
-    parser.add_argument("--output_dir", type=str, default="test_results", help="Directory for test results")
-    parser.add_argument("--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID")
+    parser = argparse.ArgumentParser(
+        description="Test fine-tuned LLM model on unseen data"
+    )
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        required=True,
+        help="Directory containing the fine-tuned model",
+    )
+    parser.add_argument(
+        "--dataset_path", type=str, required=True, help="JSONL dataset file"
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="test_results",
+        help="Directory for test results",
+    )
+    parser.add_argument(
+        "--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID"
+    )
     args = parser.parse_args()
 
     model_path = os.path.expanduser(args.model_path)
@@ -321,6 +409,7 @@ def main():
     output_dir = os.path.expanduser(args.output_dir)
 
     test_model(model_path, dataset_path, output_dir, model_id=args.model_id)
+
 
 if __name__ == "__main__":
     main()

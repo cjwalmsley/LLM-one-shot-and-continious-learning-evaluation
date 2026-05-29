@@ -43,14 +43,14 @@ class TestFinetune(unittest.TestCase):
     @patch('finetune.load_dotenv')
     @patch('finetune.os.makedirs')
     @patch('finetune.os.path.exists')
+    @patch('finetune.subprocess.run')
     @patch('finetune.AutoTokenizer')
     @patch('finetune.AutoModelForCausalLM')
-    @patch('finetune.prepare_model_for_kbit_training')
     @patch('finetune.load_dataset')
     @patch('finetune.SFTTrainer')
     @patch('finetune.SFTConfig')
     def test_main(self, mock_sft_config, mock_sft_trainer, mock_load_dataset,
-                  mock_prepare_model, mock_auto_model, mock_auto_tokenizer, mock_path_exists, mock_makedirs, mock_load_dotenv):
+                  mock_auto_model, mock_auto_tokenizer, mock_subprocess_run, mock_path_exists, mock_makedirs, mock_load_dotenv):
         # Arrange
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()
@@ -60,7 +60,6 @@ class TestFinetune(unittest.TestCase):
 
         mock_model_instance = MagicMock()
         mock_auto_model.from_pretrained.return_value = mock_model_instance
-        mock_prepare_model.return_value = mock_model_instance
 
         mock_dataset_instance = MagicMock()
         mock_load_dataset.return_value = mock_dataset_instance
@@ -81,6 +80,7 @@ class TestFinetune(unittest.TestCase):
         mock_trainer_instance.train.assert_called_once()
         mock_trainer_instance.model.save_pretrained.assert_called_once()
         mock_tokenizer_instance.save_pretrained.assert_called_once()
+        self.assertEqual(mock_subprocess_run.call_count, 2)
 
     def test_dataset_splitting(self):
         """Test that dataset is correctly split based on is_pretraining flag"""

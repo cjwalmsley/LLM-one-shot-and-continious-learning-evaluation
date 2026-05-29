@@ -11,7 +11,7 @@ import subprocess
 import argparse
 import os
 from dotenv import load_dotenv
-from peft import prepare_model_for_kbit_training
+import sys
 
 
 def format_prompt(example, tokenizer):
@@ -193,7 +193,7 @@ def main():
     try:
         subprocess.run(
             [
-                "python",
+                sys.executable,
                 "evaluate.py",
                 "--model_path",
                 expanded_output_dir,
@@ -222,7 +222,7 @@ def main():
     try:
         subprocess.run(
             [
-                "python",
+                sys.executable,
                 "test.py",
                 "--model_path",
                 expanded_output_dir,

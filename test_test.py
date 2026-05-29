@@ -49,25 +49,25 @@ class TestLoadTokenizerAndModel(unittest.TestCase):
 
 
 class TestGenerateResponse(unittest.TestCase):
-    def test_generate_response_returns_decoded_text(self):
+    def test_generate_batch_responses_returns_decoded_text(self):
         tokenizer = MagicMock()
         tokenizer.apply_chat_template.return_value = "prompt"
         tokenizer.return_value = {"input_ids": test_module.torch.tensor([[1, 2, 3]])}
-        tokenizer.decode.return_value = "final answer"
+        tokenizer.batch_decode.return_value = ["final answer"]
         tokenizer.eos_token_id = 2
 
         model = MagicMock()
         model.generate.return_value = test_module.torch.tensor([[1, 2, 3, 4, 5]])
 
-        response = test_module.generate_response(
+        response = test_module.generate_batch_responses(
             model,
             tokenizer,
-            messages=[{"role": "user", "content": "Question?"}],
+            messages_batch=[[{"role": "user", "content": "Question?"}]],
             device="cpu",
-            max_length=16,
+            max_new_tokens=16,
         )
 
-        self.assertEqual(response, "final answer")
+        self.assertEqual(response, ["final answer"])
         tokenizer.apply_chat_template.assert_called_once_with(
             [{"role": "user", "content": "Question?"}],
             tokenize=False,
@@ -92,7 +92,7 @@ class TestRunMode2(unittest.TestCase):
         model = MagicMock()
         tokenizer = MagicMock()
 
-        with patch("test.generate_response") as mock_generate:
+        with patch("test.generate_single_response") as mock_generate:
             mock_generate.side_effect = ["ok", "ok", "Answer A", "Answer B"]
             results, exact_count, fuzzy_count = test_module.run_mode_2(
                 model, tokenizer, sample_records, "cpu"
@@ -104,10 +104,10 @@ class TestRunMode2(unittest.TestCase):
         self.assertEqual(results[0]["mode"], 2)
         self.assertEqual(results[1]["predicted"], "Answer B")
 
-        self.assertEqual(mock_generate.call_args_list[0].kwargs["max_length"], 50)
-        self.assertEqual(mock_generate.call_args_list[1].kwargs["max_length"], 50)
-        self.assertNotIn("max_length", mock_generate.call_args_list[2].kwargs)
-        self.assertNotIn("max_length", mock_generate.call_args_list[3].kwargs)
+        self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
+        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[2].kwargs)
+        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[3].kwargs)
 
 
 class TestExactMatch(unittest.TestCase):
@@ -239,6 +239,7 @@ class TestTestModel(unittest.TestCase):
                 "google/gemma-4-E2B",
                 "cpu",
                 sample_records,
+                16,
             )
 
             results_file = os.path.join(tmpdir, "test_results.jsonl")

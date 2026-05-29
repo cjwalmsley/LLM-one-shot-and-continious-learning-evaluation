@@ -1,15 +1,17 @@
+import gc
+import torch
 from datasets import load_dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
 )
-from peft import LoraConfig, prepare_model_for_kbit_training
+from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
-from evaluate import evaluate_model
 import subprocess
 import argparse
 import os
 from dotenv import load_dotenv
+from peft import prepare_model_for_kbit_training
 
 
 def format_prompt(example, tokenizer):
@@ -100,9 +102,6 @@ def main():
     print("Loading model...")
     model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
 
-    # Prepare model for LoRA training
-    model = prepare_model_for_kbit_training(model)
-
     print("Configuring LoRA...")
     peft_config = LoraConfig(
         r=16,
@@ -176,17 +175,40 @@ def main():
     tokenizer.save_pretrained(f"{expanded_output_dir}/final-adapter")
     print("Done!")
 
-    # Run evaluation
+    print("Tearing down training graph to free VRAM for evaluation...")
+    del trainer
+    del model
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    # Run evaluation via subprocess to isolate VRAM
     print("\n" + "=" * 60)
     print("Starting model evaluation...")
     print("=" * 60)
     eval_output_dir = f"{expanded_output_dir}/evaluation"
+
     try:
-        evaluate_model(
-            expanded_output_dir,
-            expanded_dataset_path,
-            eval_output_dir,
-            model_id=model_id,
+        subprocess.run(
+            [
+                "python",
+                "evaluate.py",
+                "--model_path",
+                expanded_output_dir,
+                "--dataset_path",
+                expanded_dataset_path,
+                "--output_dir",
+                eval_output_dir,
+                "--model_id",
+                model_id,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Warning: Evaluation failed. Subprocess exited with error code: {e.returncode}"
         )
     except Exception as e:
         print(f"Warning: Evaluation failed with error: {e}")

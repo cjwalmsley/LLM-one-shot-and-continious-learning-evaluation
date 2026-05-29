@@ -41,12 +41,14 @@ def _load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        device_map="cpu" if device == "cpu" else "auto",
+        device_map=(
+            "cpu" if device == "cpu" else {"": device}
+        ),  # Forces strict GPU mapping
         torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     )
 
-    if is_trainable:
-        base_model = prepare_model_for_kbit_training(base_model)
+    # REMOVED: prepare_model_for_kbit_training.
+    # It causes massive float32 VRAM bloat and is unnecessary for bfloat16 LoRA.
 
     model = PeftModel.from_pretrained(
         base_model, adapter_path, is_trainable=is_trainable
@@ -54,6 +56,11 @@ def _load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False
 
     if not is_trainable:
         model.eval()
+    else:
+        # Explicitly ensure only the LoRA parameters require gradients
+        for name, param in model.named_parameters():
+            if "lora" in name.lower():
+                param.requires_grad = True
 
     return tokenizer, model
 
@@ -66,9 +73,8 @@ def generate_response(model, tokenizer, messages, device, max_length=256):
     inputs = tokenizer(prompt, return_tensors="pt")
 
     if device != "cpu":
-        target_device = getattr(model, "device", torch.device(device))
-        if str(target_device) != "meta":
-            inputs = {key: value.to(target_device) for key, value in inputs.items()}
+        # Send inputs directly to the confirmed active device
+        inputs = {key: value.to(device) for key, value in inputs.items()}
 
     input_length = inputs["input_ids"].shape[1]
 
@@ -396,7 +402,7 @@ def main():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="test_results",
+        default="testing",
         help="Directory for test results",
     )
     parser.add_argument(

@@ -1,3 +1,5 @@
+import gc
+from accelerate.utils import release_memory
 import argparse
 import json
 import os
@@ -37,18 +39,13 @@ def _load_tokenizer_and_model(model_path, model_id, device):
     print("Loading tokenizer and model...")
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
-    if device == "cpu":
-        base_model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="cpu",
-            torch_dtype=torch.float32,
-        )
-    else:
-        base_model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype=torch.float16,
-        )
+    base_model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        device_map=(
+            "cpu" if device == "cpu" else {"": device}
+        ),  # Forces strict GPU mapping
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+    )
 
     model = PeftModel.from_pretrained(base_model, adapter_path)
     model.eval()
@@ -67,9 +64,8 @@ def generate_response(model, tokenizer, context, question, device, max_length=25
     # and let transformers handle device placement
     inputs = tokenizer(prompt, return_tensors="pt")
     if device != "cpu":
-        target_device = getattr(model, "device", torch.device(device))
-        if str(target_device) != "meta":
-            inputs = {key: value.to(target_device) for key, value in inputs.items()}
+        # Send inputs directly to the confirmed active device
+        inputs = {key: value.to(device) for key, value in inputs.items()}
     outputs = model.generate(
         **inputs,
         max_length=max_length,
@@ -201,6 +197,18 @@ def evaluate_model(model_path, dataset_path, output_dir, model_id="google/gemma-
         f"Fuzzy Match Accuracy: {fuzzy_match_count}/{total_samples} ({fuzzy_accuracy:.2f}%)"
     )
     print("=" * 60 + "\n")
+
+    print("Tearing down evaluation computational graph to free VRAM...")
+    del model
+    del tokenizer
+
+    release_memory()
+    gc.collect()
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     return summary
 
 
@@ -218,7 +226,7 @@ def main():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="evaluation_results",
+        default="evaluation",
         help="Directory to save evaluation results",
     )
     parser.add_argument(

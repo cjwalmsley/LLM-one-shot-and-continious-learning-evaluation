@@ -6,7 +6,7 @@ import torch
 from datetime import datetime
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel, prepare_model_for_kbit_training
+from peft import PeftModel
 from trl import SFTTrainer, SFTConfig
 from rapidfuzz import fuzz
 
@@ -129,6 +129,7 @@ def run_mode_1(model, tokenizer, test_dataset, device):
             {
                 "sample_id": idx,
                 "mode": 1,
+                "question": question,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
                 "exact_match": exact,
@@ -179,6 +180,7 @@ def run_mode_2(model, tokenizer, test_dataset, device):
             {
                 "sample_id": idx,
                 "mode": 2,
+                "question": question,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
                 "exact_match": exact,
@@ -272,6 +274,7 @@ def run_mode_3(
             {
                 "sample_id": idx,
                 "mode": 3,
+                "question": question,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
                 "exact_match": exact,
@@ -373,15 +376,24 @@ def test_model(model_path, dataset_path, output_dir, model_id="google/gemma-4-E2
     print(
         f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
     )
+    print(
+        f"Fuzzy Match: {fuzzy_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
+    )
 
     print("\n[Mode 2: Continuous Context (Working Memory)]")
     print(
         f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
     )
+    print(
+        f"Fuzzy Match: {fuzzy_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
+    )
 
     print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning)]")
     print(
         f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})"
+    )
+    print(
+        f"Fuzzy Match: {fuzzy_m3}/{total_samples} ({summary['mode_3_parametric']['fuzzy_match_accuracy']})"
     )
     print("=" * 60 + "\n")
 

@@ -129,6 +129,97 @@ class TestFuzzyMatch(unittest.TestCase):
         self.assertFalse(test_module.fuzzy_match("apple", "banana"))
 
 
+class TestRunMode4(unittest.TestCase):
+    @patch("peft.get_peft_model")
+    @patch("peft.LoraConfig")
+    @patch("test.generate_batch_responses")
+    @patch("test.SFTTrainer")
+    @patch("test.SFTConfig")
+    @patch("test.AutoModelForCausalLM")
+    @patch("test.AutoTokenizer")
+    @patch("test.PeftModel")
+    def test_run_mode_4_returns_results_and_counts(
+        self,
+        mock_peft_model_cls,
+        mock_tokenizer_cls,
+        mock_base_model_cls,
+        mock_sft_config_cls,
+        mock_trainer_cls,
+        mock_generate_batch,
+        mock_lora_config_cls,
+        mock_get_peft_model,
+    ):
+        test_dataset = [
+            {
+                "declarative_statement": "Context A",
+                "question": "Question A?",
+                "answer": "Answer A",
+            },
+            {
+                "declarative_statement": "Context B",
+                "question": "Question B?",
+                "answer": "Answer B",
+            },
+        ]
+
+        class FakeDataset:
+            def __init__(self, records):
+                self._records = records
+
+            def __len__(self):
+                return len(self._records)
+
+            def map(self, _):
+                return self
+
+            def __getitem__(self, index):
+                if isinstance(index, slice):
+                    chunk = self._records[index]
+                    return {
+                        "question": [item.get("question") for item in chunk],
+                        "answer": [item.get("answer") for item in chunk],
+                    }
+                return self._records[index]
+
+        mapped_dataset = FakeDataset(test_dataset)
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
+
+        mock_trainer = MagicMock()
+        mock_trainer.model.merge_and_unload.return_value = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer
+
+        mock_peft_model = MagicMock()
+        mock_peft_model_cls.from_pretrained.return_value = mock_peft_model
+        mock_get_peft_model.return_value = MagicMock()
+
+        mock_generate_batch.return_value = ["Answer A", "Answer B"]
+
+        results, exact_count, fuzzy_count = test_module.run_mode_4(
+            "/tmp/final-adapter",
+            "/tmp/data.jsonl",
+            "/tmp/out",
+            "google/gemma-4-E2B",
+            "cpu",
+            mapped_dataset,
+            batch_size=2,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(exact_count, 2)
+        self.assertEqual(fuzzy_count, 2)
+        self.assertEqual(results[0]["mode"], 4)
+        self.assertEqual(results[1]["predicted"], "Answer B")
+        expected_messages = [
+            [{"role": "user", "content": "Question: Question A?"}],
+            [{"role": "user", "content": "Question: Question B?"}],
+        ]
+        mock_generate_batch.assert_called_once_with(
+            mock_peft_model, mock_tokenizer, expected_messages, "cpu"
+        )
+
+
 class TestTestModel(unittest.TestCase):
     @patch("test.get_device", return_value="cpu")
     @patch("test._load_tokenizer_and_model")
@@ -146,6 +237,7 @@ class TestTestModel(unittest.TestCase):
         self.assertIsNone(result)
         mock_load_model.assert_not_called()
 
+    @patch("test.run_mode_4")
     @patch("test.run_mode_3")
     @patch("test.run_mode_2")
     @patch("test.run_mode_1")
@@ -160,6 +252,7 @@ class TestTestModel(unittest.TestCase):
         mock_run_mode_1,
         mock_run_mode_2,
         mock_run_mode_3,
+        mock_run_mode_4,
     ):
         mock_load_model.return_value = (MagicMock(), MagicMock())
         mock_dataset = MagicMock()
@@ -225,6 +318,20 @@ class TestTestModel(unittest.TestCase):
             1,
             1,
         )
+        mock_run_mode_4.return_value = (
+            [
+                {
+                    "sample_id": 3,
+                    "mode": 4,
+                    "ground_truth": "Answer D",
+                    "predicted": "Answer D",
+                    "exact_match": True,
+                    "fuzzy_match": True,
+                }
+            ],
+            1,
+            1,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = test_module.test_model(
@@ -233,6 +340,15 @@ class TestTestModel(unittest.TestCase):
 
             self.assertIsNone(result)
             mock_run_mode_3.assert_called_once_with(
+                os.path.join(tmpdir, "final-adapter"),
+                os.path.join(tmpdir, "data.jsonl"),
+                tmpdir,
+                "google/gemma-4-E2B",
+                "cpu",
+                sample_records,
+                16,
+            )
+            mock_run_mode_4.assert_called_once_with(
                 os.path.join(tmpdir, "final-adapter"),
                 os.path.join(tmpdir, "data.jsonl"),
                 tmpdir,
@@ -250,7 +366,7 @@ class TestTestModel(unittest.TestCase):
 
             with open(results_file, "r") as handle:
                 results_lines = handle.readlines()
-            self.assertEqual(len(results_lines), 3)
+            self.assertEqual(len(results_lines), 4)
 
             with open(summary_file, "r") as handle:
                 saved_summary = json.load(handle)
@@ -261,6 +377,9 @@ class TestTestModel(unittest.TestCase):
             )
             self.assertEqual(
                 saved_summary["mode_2_continuous"]["fuzzy_match_accuracy"], "50.00%"
+            )
+            self.assertEqual(
+                saved_summary["mode_4_cpt"]["exact_match_accuracy"], "50.00%"
             )
 
 

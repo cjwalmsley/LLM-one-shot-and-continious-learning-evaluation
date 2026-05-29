@@ -129,7 +129,9 @@ def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
 
         predictions = generate_batch_responses(model, tokenizer, messages_batch, device)
 
-        for idx, truth, pred in zip(sample_ids, ground_truths, predictions):
+        for idx, truth, question, pred in zip(
+            sample_ids, ground_truths, questions, predictions
+        ):
             exact = exact_match(pred, truth)
             fuzzy = fuzzy_match(pred, truth)
 
@@ -142,6 +144,7 @@ def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
                 {
                     "sample_id": idx,
                     "mode": 1,
+                    "question": question,
                     "ground_truth": truth,
                     "predicted": pred,
                     "exact_match": exact,
@@ -195,6 +198,7 @@ def run_mode_2(model, tokenizer, test_dataset, device):
             {
                 "sample_id": idx,
                 "mode": 2,
+                "question": question,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
                 "exact_match": exact,
@@ -289,7 +293,9 @@ def run_mode_3(
             eval_model, tokenizer, messages_batch, device
         )
 
-        for idx, truth, pred in zip(sample_ids, ground_truths, predictions):
+        for idx, question, truth, pred in zip(
+            sample_ids, questions, ground_truths, predictions
+        ):
             exact = exact_match(pred, truth)
             fuzzy = fuzzy_match(pred, truth)
 
@@ -302,6 +308,7 @@ def run_mode_3(
                 {
                     "sample_id": idx,
                     "mode": 3,
+                    "question": question,
                     "ground_truth": truth,
                     "predicted": pred,
                     "exact_match": exact,
@@ -313,6 +320,161 @@ def run_mode_3(
 
     print("  [System] Cleaning up post-evaluation VRAM...")
     del eval_model
+    release_memory()
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    return results, exact_count, fuzzy_count
+
+
+def run_mode_4(
+    original_adapter_path,
+    dataset_path,
+    output_dir,
+    model_id,
+    device,
+    test_dataset,
+    batch_size,
+):
+    """Mode 4: Continued Pre-Training (CPT) on Declarative Statements + QA Stacking."""
+    print("\n--- Running Mode 4: Continued Pre-Training (LoRA Stacking) ---")
+
+    # 1. Format the dataset for CPT using the declarative statements exclusively
+    def format_cpt_train(example):
+        return {"text": example["declarative_statement"]}
+
+    cpt_train_data = test_dataset.map(format_cpt_train)
+    mode4_cpt_dir = os.path.join(output_dir, "mode4_cpt_adapter")
+
+    print("  Pass 1: Pre-training base model on continuous declarative statements...")
+
+    # Load fresh base model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(original_adapter_path)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+
+    base_model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        device_map=("cpu" if device == "cpu" else {"": device}),  # Strict GPU mapping
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+    )
+
+    # Setup temporary LoRA adapter specifically for CPT
+    from peft import LoraConfig, get_peft_model
+
+    cpt_peft_config = LoraConfig(
+        r=16,
+        lora_alpha=32,
+        target_modules=[
+            "q_proj.linear",
+            "k_proj.linear",
+            "v_proj.linear",
+            "o_proj.linear",
+            "gate_proj.linear",
+            "up_proj.linear",
+            "down_proj.linear",
+        ],
+        task_type="CAUSAL_LM",
+    )
+    cpt_model = get_peft_model(base_model, cpt_peft_config)
+
+    training_args = SFTConfig(
+        output_dir=mode4_cpt_dir,
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
+        num_train_epochs=1,
+        learning_rate=2e-5,
+        bf16=True,  # Native AMD speed
+        optim="adamw_torch",
+        dataset_text_field="text",
+        packing=False,  # Packs the declarative sentences into continuous blocks
+        max_length=256,
+        report_to="none",
+    )
+
+    trainer = SFTTrainer(
+        model=cpt_model,
+        train_dataset=cpt_train_data,
+        peft_config=None,  # It is already a PeftModel
+        processing_class=tokenizer,
+        args=training_args,
+    )
+
+    trainer.train()
+
+    print("  [System] Merging CPT knowledge into base weights...")
+    # Merge the CPT adapter into the base model weights permanently for this session
+    merged_base_model = trainer.model.merge_and_unload()
+
+    print("  [System] Stacking original QA adapter on top of updated base model...")
+    # Load the original QA adapter on top of the newly updated base model
+    final_eval_model = PeftModel.from_pretrained(
+        merged_base_model, original_adapter_path, is_trainable=False
+    )
+    final_eval_model.eval()
+
+    print(
+        "  [System] Tearing down training graph to free VRAM before batched inference..."
+    )
+    del trainer
+    del cpt_model
+    from accelerate.utils import release_memory
+
+    release_memory()
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    print(
+        "  Pass 2: Evaluating questions using CPT-updated base + QA adapter (Batched)..."
+    )
+    results = []
+    exact_count, fuzzy_count = 0, 0
+    total = len(test_dataset)
+
+    for i in range(0, total, batch_size):
+        batch = test_dataset[i : i + batch_size]
+        questions = batch.get("question", [])
+        ground_truths = batch.get("answer", [])
+        sample_ids = range(i, i + len(questions))
+
+        messages_batch = [
+            [{"role": "user", "content": f"Question: {q}"}] for q in questions
+        ]
+
+        predictions = generate_batch_responses(
+            final_eval_model, tokenizer, messages_batch, device
+        )
+
+        for idx, truth, pred in zip(sample_ids, ground_truths, predictions):
+            exact = exact_match(pred, truth)
+            fuzzy = fuzzy_match(pred, truth)
+
+            if exact:
+                exact_count += 1
+            if fuzzy:
+                fuzzy_count += 1
+
+            results.append(
+                {
+                    "sample_id": idx,
+                    "mode": 4,
+                    "ground_truth": truth,
+                    "predicted": pred,
+                    "exact_match": exact,
+                    "fuzzy_match": fuzzy,
+                }
+            )
+
+        print(f"    Answered {min(i + batch_size, total)}/{total} questions")
+
+    print("  [System] Cleaning up post-evaluation VRAM...")
+    del final_eval_model
+    del merged_base_model
     release_memory()
     gc.collect()
     if torch.cuda.is_available():
@@ -371,7 +533,18 @@ def test_model(
         batch_size,
     )
 
-    all_results = results_m1 + results_m2 + results_m3
+    # Execute Mode 4 (CPT + Stacking)
+    results_m4, exact_m4, fuzzy_m4 = run_mode_4(
+        original_adapter,
+        dataset_path,
+        output_dir,
+        model_id,
+        device,
+        test_dataset,
+        batch_size,
+    )
+
+    all_results = results_m1 + results_m2 + results_m3 + results_m4
     results_file = os.path.join(output_dir, "test_results.jsonl")
     with open(results_file, "w") as f:
         for res in all_results:
@@ -394,8 +567,11 @@ def test_model(
             "exact_match_accuracy": f"{(exact_m3 / total_samples) * 100:.2f}%",
             "fuzzy_match_accuracy": f"{(fuzzy_m3 / total_samples) * 100:.2f}%",
         },
+        "mode_4_cpt": {
+            "exact_match_accuracy": f"{(exact_m4 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m4 / total_samples) * 100:.2f}%",
+        },
     }
-
     summary_file = os.path.join(output_dir, "test_summary.json")
     with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
@@ -409,16 +585,35 @@ def test_model(
     print(
         f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
     )
+    print(
+        f"Fuzzy Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
+    )
 
     print("\n[Mode 2: Continuous Context (Working Memory - Sequential)]")
     print(
         f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
+    )
+    print(
+        f"Fuzzy Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
     )
 
     print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning - Batched)]")
     print(
         f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})"
     )
+    print(
+        f"Fuzzy Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['fuzzy_match_accuracy']})"
+    )
+
+    print("\n[Mode 4: Continued Pre-Training (LoRA Stacking)]")
+    print(
+        f"Exact Match: {exact_m4}/{total_samples} ({summary['mode_4_cpt']['exact_match_accuracy']})"
+    )
+
+    print(
+        f"Fuzzy Match: {exact_m4}/{total_samples} ({summary['mode_4_cpt']['fuzzy_match_accuracy']})"
+    )
+
     print("=" * 60 + "\n")
 
 

@@ -329,6 +329,48 @@ def run_mode_3(
     return results, exact_count, fuzzy_count
 
 
+def _detect_lora_target_modules(model, preferred=None):
+    if preferred is None:
+        preferred = [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+
+    supported = (
+        torch.nn.Linear,
+        torch.nn.Embedding,
+        torch.nn.Conv1d,
+        torch.nn.Conv2d,
+        torch.nn.Conv3d,
+    )
+    supported_module_names = {
+        name
+        for name, module in model.named_modules()
+        if isinstance(module, supported)
+    }
+
+    matches = []
+    for pref in preferred:
+        linear_suffix = f"{pref}.linear"
+        if any(name.endswith(linear_suffix) for name in supported_module_names):
+            matches.append(linear_suffix)
+            continue
+
+        plain_suffix = f".{pref}"
+        if any(
+            name == pref or name.endswith(plain_suffix)
+            for name in supported_module_names
+        ):
+            matches.append(pref)
+
+    return list(dict.fromkeys(matches))
+
+
 def run_mode_4(
     original_adapter_path,
     dataset_path,
@@ -365,18 +407,18 @@ def run_mode_4(
     # Setup temporary LoRA adapter specifically for CPT
     from peft import LoraConfig, get_peft_model
 
+    target_modules = _detect_lora_target_modules(base_model)
+    if not target_modules:
+        raise RuntimeError(
+            "No matching LoRA target modules found for CPT. "
+            "Check model architecture or update target module detection."
+        )
+    print(f"  [System] CPT target modules: {', '.join(target_modules)}")
+
     cpt_peft_config = LoraConfig(
         r=16,
         lora_alpha=32,
-        target_modules=[
-            "q_proj.linear",
-            "k_proj.linear",
-            "v_proj.linear",
-            "o_proj.linear",
-            "gate_proj.linear",
-            "up_proj.linear",
-            "down_proj.linear",
-        ],
+        target_modules=target_modules,
         task_type="CAUSAL_LM",
     )
     cpt_model = get_peft_model(base_model, cpt_peft_config)

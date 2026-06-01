@@ -186,6 +186,12 @@ class TestRunMode4(unittest.TestCase):
         mock_tokenizer = MagicMock()
         mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
 
+        mock_base_model = MagicMock()
+        mock_base_model.named_modules.return_value = [
+            ("q_proj.linear", test_module.torch.nn.Linear(4, 4))
+        ]
+        mock_base_model_cls.from_pretrained.return_value = mock_base_model
+
         mock_trainer = MagicMock()
         mock_trainer.model.merge_and_unload.return_value = MagicMock()
         mock_trainer_cls.return_value = mock_trainer

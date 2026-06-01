@@ -450,7 +450,9 @@ def run_mode_4(
             final_eval_model, tokenizer, messages_batch, device
         )
 
-        for idx, truth, pred in zip(sample_ids, ground_truths, predictions):
+        for idx, question, truth, pred in zip(
+            sample_ids, questions, ground_truths, predictions
+        ):
             exact = exact_match(pred, truth)
             fuzzy = fuzzy_match(pred, truth)
 
@@ -463,6 +465,7 @@ def run_mode_4(
                 {
                     "sample_id": idx,
                     "mode": 4,
+                    "question": question,
                     "ground_truth": truth,
                     "predicted": pred,
                     "exact_match": exact,
@@ -586,7 +589,7 @@ def test_model(
         f"Exact Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['exact_match_accuracy']})"
     )
     print(
-        f"Fuzzy Match: {exact_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
+        f"Fuzzy Match: {fuzzy_m1}/{total_samples} ({summary['mode_1_isolated']['fuzzy_match_accuracy']})"
     )
 
     print("\n[Mode 2: Continuous Context (Working Memory - Sequential)]")
@@ -594,7 +597,7 @@ def test_model(
         f"Exact Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['exact_match_accuracy']})"
     )
     print(
-        f"Fuzzy Match: {exact_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
+        f"Fuzzy Match: {fuzzy_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
     )
 
     print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning - Batched)]")
@@ -602,7 +605,7 @@ def test_model(
         f"Exact Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['exact_match_accuracy']})"
     )
     print(
-        f"Fuzzy Match: {exact_m3}/{total_samples} ({summary['mode_3_parametric']['fuzzy_match_accuracy']})"
+        f"Fuzzy Match: {fuzzy_m3}/{total_samples} ({summary['mode_3_parametric']['fuzzy_match_accuracy']})"
     )
 
     print("\n[Mode 4: Continued Pre-Training (LoRA Stacking)]")
@@ -611,7 +614,7 @@ def test_model(
     )
 
     print(
-        f"Fuzzy Match: {exact_m4}/{total_samples} ({summary['mode_4_cpt']['fuzzy_match_accuracy']})"
+        f"Fuzzy Match: {fuzzy_m4}/{total_samples} ({summary['mode_4_cpt']['fuzzy_match_accuracy']})"
     )
 
     print("=" * 60 + "\n")

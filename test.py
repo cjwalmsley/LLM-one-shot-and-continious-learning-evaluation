@@ -381,6 +381,17 @@ def run_mode_4(
     )
     cpt_model = get_peft_model(base_model, cpt_peft_config)
 
+    def _count_trainable_params(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    trainable_params = _count_trainable_params(cpt_model)
+    print(f"  [System] CPT trainable parameters: {trainable_params:,}")
+    if trainable_params == 0:
+        raise RuntimeError(
+            "CPT adapter has zero trainable parameters. "
+            "Check target_modules for this model architecture."
+        )
+
     training_args = SFTConfig(
         output_dir=mode4_cpt_dir,
         per_device_train_batch_size=2,

@@ -192,7 +192,13 @@ class TestRunMode4(unittest.TestCase):
 
         mock_peft_model = MagicMock()
         mock_peft_model_cls.from_pretrained.return_value = mock_peft_model
-        mock_get_peft_model.return_value = MagicMock()
+
+        trainable_param = MagicMock()
+        trainable_param.requires_grad = True
+        trainable_param.numel.return_value = 128
+        mock_cpt_model = MagicMock()
+        mock_cpt_model.parameters.return_value = [trainable_param]
+        mock_get_peft_model.return_value = mock_cpt_model
 
         mock_generate_batch.return_value = ["Answer A", "Answer B"]
 

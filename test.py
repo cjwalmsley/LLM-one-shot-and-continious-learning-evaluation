@@ -234,13 +234,24 @@ def run_mode_3(
         original_adapter_path, model_id, device, is_trainable=True
     )
 
+    use_bf16 = False
+    use_fp16 = False
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            use_bf16 = True
+        else:
+            use_fp16 = True
+    elif torch.backends.mps.is_available():
+        use_fp16 = True
+
     training_args = SFTConfig(
         output_dir=mode3_adapter_dir,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         num_train_epochs=1,
         learning_rate=2e-5,
-        bf16=True,
+        bf16=use_bf16,
+        fp16=use_fp16,
         optim="adamw_torch",
         dataset_text_field="text",
         max_length=256,
@@ -434,13 +445,24 @@ def run_mode_4(
             "Check target_modules for this model architecture."
         )
 
+    use_bf16 = False
+    use_fp16 = False
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            use_bf16 = True
+        else:
+            use_fp16 = True
+    elif torch.backends.mps.is_available():
+        use_fp16 = True
+
     training_args = SFTConfig(
         output_dir=mode4_cpt_dir,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         num_train_epochs=1,
         learning_rate=2e-5,
-        bf16=True,  # Native AMD speed
+        bf16=use_bf16,
+        fp16=use_fp16,
         optim="adamw_torch",
         dataset_text_field="text",
         packing=False,  # Packs the declarative sentences into continuous blocks

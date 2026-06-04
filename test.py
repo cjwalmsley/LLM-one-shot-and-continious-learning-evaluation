@@ -360,9 +360,7 @@ def _detect_lora_target_modules(model, preferred=None):
         torch.nn.Conv3d,
     )
     supported_module_names = {
-        name
-        for name, module in model.named_modules()
-        if isinstance(module, supported)
+        name for name, module in model.named_modules() if isinstance(module, supported)
     }
 
     matches = []
@@ -459,8 +457,8 @@ def run_mode_4(
         output_dir=mode4_cpt_dir,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
-        num_train_epochs=1,
-        learning_rate=2e-5,
+        num_train_epochs=200,
+        learning_rate=2e-4,
         bf16=use_bf16,
         fp16=use_fp16,
         optim="adamw_torch",

@@ -4,7 +4,7 @@
 #SBATCH --export=ALL
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=24G
+#SBATCH --mem=96G
 #SBATCH --constraint=cascadelake
 
 source ~/miniconda3/etc/profile.d/conda.sh

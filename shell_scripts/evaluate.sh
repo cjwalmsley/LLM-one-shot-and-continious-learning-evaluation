@@ -1,5 +1,13 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+  echo "Error: venv Python not found or not executable: $PYTHON_BIN" >&2
+  exit 1
+fi
+
 # Use defaults
 #./evaluate.sh --model_path "gemma4-qa-finetune" --dataset_path "sample_dataset.jsonl"
 
@@ -12,5 +20,5 @@
 # Combine multiple parameters
 #./evaluate.sh --model_path "gemma4-qa-finetune" --dataset_path "sample_dataset.jsonl" --output_dir "my_evaluation_results"
 
-~/PycharmProjects/LLM-one-shot-and-continious-learning-evaluation/.venv/bin/python ~/PycharmProjects/LLM-one-shot-and-continious-learning-evaluation/evaluate.py "$@"
+"$PYTHON_BIN" "$ROOT_DIR/evaluate.py" "$@"
 

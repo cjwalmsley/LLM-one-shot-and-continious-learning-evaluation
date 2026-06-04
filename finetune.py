@@ -139,6 +139,20 @@ def main():
     test_dataset = test_dataset.map(lambda x: format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
+
+    # Determine precision based on hardware support
+    use_bf16 = False
+    use_fp16 = False
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            use_bf16 = True
+        else:
+            use_fp16 = True
+    elif torch.backends.mps.is_available():
+        use_fp16 = True
+
+    print(f"Using bf16: {use_bf16}, fp16: {use_fp16}")
+
     training_args = SFTConfig(
         output_dir=expanded_output_dir,
         per_device_train_batch_size=2,
@@ -146,7 +160,8 @@ def main():
         warmup_steps=10,
         max_steps=200,
         learning_rate=2e-4,
-        bf16=True,  # Switched from fp16=True for native AMD speed
+        bf16=use_bf16,
+        fp16=use_fp16,
         logging_steps=10,
         optim="adamw_torch",  # Uses native PyTorch AdamW instead of CUDA bnb optimizer
         save_strategy="steps",

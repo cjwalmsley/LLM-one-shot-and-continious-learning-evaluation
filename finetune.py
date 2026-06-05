@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="sample_dataset.jsonl",
+        default=None,
         help="The filepath of the dataset file to load",
     )
     parser.add_argument(
@@ -74,12 +74,18 @@ def main():
     experiment = args.experiment
 
     # if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
-    if experiment:
+    if experiment and not args.dataset_path:
         dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
         output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
-    else:
+    elif experiment and args.dataset_path:
         dataset_path = args.dataset_path
-        output_dir = "gemma4-qa-finetune"
+        output_dir = f"/experiments/{experiment}/{model_id}"
+    elif not experiment and args.dataset_path:
+        dataset_path = args.dataset_path
+        output_dir = f"./{model_id}"
+    else:
+        dataset_path = "sample_dataset.jsonl"
+        output_dir = f"./{model_id}"
 
     # check if the dataset_path exists
     expanded_dataset_path = os.path.expanduser(dataset_path)

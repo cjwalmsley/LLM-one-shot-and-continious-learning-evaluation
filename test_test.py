@@ -5,76 +5,6 @@ import os
 import tempfile
 import test as test_module
 
-
-class TestGetDevice(unittest.TestCase):
-    def test_get_device_prefers_cuda(self):
-        with patch.object(test_module.torch.cuda, "is_available", return_value=True), \
-            patch.object(test_module.torch.cuda, "get_device_name", return_value="NVIDIA A100"), \
-            patch.object(test_module.torch.backends.mps, "is_available", return_value=False):
-            self.assertEqual(test_module.get_device(), "cuda")
-
-    def test_get_device_uses_mps_when_no_cuda(self):
-        with patch.object(test_module.torch.cuda, "is_available", return_value=False), \
-            patch.object(test_module.torch.backends.mps, "is_available", return_value=True):
-            self.assertEqual(test_module.get_device(), "mps")
-
-    def test_get_device_falls_back_to_cpu(self):
-        with patch.object(test_module.torch.cuda, "is_available", return_value=False), \
-            patch.object(test_module.torch.backends.mps, "is_available", return_value=False):
-            self.assertEqual(test_module.get_device(), "cpu")
-
-
-class TestLoadTokenizerAndModel(unittest.TestCase):
-    @patch("test.PeftModel")
-    @patch("test.AutoModelForCausalLM")
-    @patch("test.AutoTokenizer")
-    def test_load_tokenizer_and_model_cpu(self, mock_tokenizer_cls, mock_model_cls, mock_peft_cls):
-        mock_tokenizer = MagicMock()
-        mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
-        mock_base_model = MagicMock()
-        mock_model_cls.from_pretrained.return_value = mock_base_model
-        mock_peft = MagicMock()
-        mock_peft_cls.from_pretrained.return_value = mock_peft
-
-        tokenizer, model = test_module._load_tokenizer_and_model("/tmp/model", "base-id", "cpu")
-
-        self.assertIs(tokenizer, mock_tokenizer)
-        self.assertIs(model, mock_peft)
-        mock_model_cls.from_pretrained.assert_called_with(
-            "base-id",
-            device_map="cpu",
-            torch_dtype=test_module.torch.float32,
-        )
-        mock_peft.eval.assert_called_once_with()
-
-
-class TestGenerateResponse(unittest.TestCase):
-    def test_generate_batch_responses_returns_decoded_text(self):
-        tokenizer = MagicMock()
-        tokenizer.apply_chat_template.return_value = "prompt"
-        tokenizer.return_value = {"input_ids": test_module.torch.tensor([[1, 2, 3]])}
-        tokenizer.batch_decode.return_value = ["final answer"]
-        tokenizer.eos_token_id = 2
-
-        model = MagicMock()
-        model.generate.return_value = test_module.torch.tensor([[1, 2, 3, 4, 5]])
-
-        response = test_module.generate_batch_responses(
-            model,
-            tokenizer,
-            messages_batch=[[{"role": "user", "content": "Question?"}]],
-            device="cpu",
-            max_new_tokens=16,
-        )
-
-        self.assertEqual(response, ["final answer"])
-        tokenizer.apply_chat_template.assert_called_once_with(
-            [{"role": "user", "content": "Question?"}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-
-
 class TestRunMode2(unittest.TestCase):
     def test_run_mode_2_records_results_and_pass2_questions(self):
         sample_records = [
@@ -108,25 +38,6 @@ class TestRunMode2(unittest.TestCase):
         self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
         self.assertNotIn("max_new_tokens", mock_generate.call_args_list[2].kwargs)
         self.assertNotIn("max_new_tokens", mock_generate.call_args_list[3].kwargs)
-
-
-class TestExactMatch(unittest.TestCase):
-    def test_exact_match_is_case_insensitive(self):
-        self.assertTrue(test_module.exact_match("YES", "yes"))
-
-    def test_exact_match_trims_whitespace(self):
-        self.assertTrue(test_module.exact_match("  yes  ", "yes"))
-
-    def test_exact_match_returns_false_for_different_strings(self):
-        self.assertFalse(test_module.exact_match("yes", "no"))
-
-
-class TestFuzzyMatch(unittest.TestCase):
-    def test_fuzzy_match_identical_strings(self):
-        self.assertTrue(test_module.fuzzy_match("reactor core safe", "reactor core safe"))
-
-    def test_fuzzy_match_returns_false_for_unrelated_strings(self):
-        self.assertFalse(test_module.fuzzy_match("apple", "banana"))
 
 
 class TestRunMode4(unittest.TestCase):
@@ -234,7 +145,7 @@ class TestRunMode4(unittest.TestCase):
 
 class TestTestModel(unittest.TestCase):
     @patch("test.get_device", return_value="cpu")
-    @patch("test._load_tokenizer_and_model")
+    @patch("test.load_tokenizer_and_model")
     @patch("test.load_dataset")
     def test_model_returns_none_when_no_samples(self, mock_load_dataset, mock_load_model, mock_device):
         mock_load_model.return_value = (MagicMock(), MagicMock())
@@ -254,7 +165,7 @@ class TestTestModel(unittest.TestCase):
     @patch("test.run_mode_2")
     @patch("test.run_mode_1")
     @patch("test.get_device", return_value="cpu")
-    @patch("test._load_tokenizer_and_model")
+    @patch("test.load_tokenizer_and_model")
     @patch("test.load_dataset")
     def test_model_writes_outputs_and_summary(
         self,

@@ -5,126 +5,15 @@ import gc
 import torch
 from datetime import datetime
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
-from rapidfuzz import fuzz
 from accelerate.utils import release_memory
 
-
-def get_device():
-    """
-    Detect and return the appropriate device for the system.
-    Supports CUDA (both NVIDIA and AMD ROCm), MPS (Apple), and CPU.
-    """
-    if torch.cuda.is_available():
-        try:
-            device_name = torch.cuda.get_device_name(0)
-            if "AMD" in device_name or "ROCM" in device_name.upper():
-                print(f"✓ Detected AMD ROCm device: {device_name}")
-            else:
-                print(f"✓ Detected NVIDIA CUDA device: {device_name}")
-            return "cuda"
-        except:
-            return "cuda"
-    elif torch.backends.mps.is_available():
-        print("✓ Detected Apple MPS device")
-        return "mps"
-    else:
-        print("✓ No GPU detected, using CPU")
-        return "cpu"
-
-
-def _load_tokenizer_and_model(model_path, model_id, device):
-    adapter_path = os.path.join(model_path, "final-adapter")
-    print("Loading tokenizer and model...")
-    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
-
-    # CRITICAL FOR BATCHING: Set pad token and force left-padding
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
-
-    base_model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        device_map="cpu" if device == "cpu" else {"": device},  # Strict GPU mapping
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
-    )
-
-    model = PeftModel.from_pretrained(base_model, adapter_path)
-    model.eval()
-    return tokenizer, model
-
-
-def generate_batch_responses(
-    model, tokenizer, contexts, questions, device, max_new_tokens=50
-):
-    """
-    Generate responses for a batch of contexts and questions simultaneously.
-    """
-    messages_batch = [
-        [{"role": "user", "content": f"Context: {c}\n\nQuestion: {q}"}]
-        for c, q in zip(contexts, questions)
-    ]
-
-    prompts = [
-        tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
-        for msgs in messages_batch
-    ]
-
-    # Tokenize the entire batch, padding to the longest sequence in the batch
-    inputs = tokenizer(prompts, return_tensors="pt", padding=True)
-
-    if device != "cpu":
-        inputs = {key: value.to(device) for key, value in inputs.items()}
-
-    input_length = inputs["input_ids"].shape[1]
-
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,  # Prevents runaway generation
-            do_sample=False,  # Greedy decoding
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    # Slice off the prompt tokens and decode only the newly generated tokens
-    new_tokens = outputs[:, input_length:]
-    responses = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
-
-    return [response.strip() for response in responses]
-
-
-def generate_response(model, tokenizer, context, question, device, max_new_tokens=50):
-    """Generate a response for a single context/question pair."""
-    messages = [{"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}]
-    prompt = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    inputs = tokenizer([prompt], return_tensors="pt", padding=True)
-    if device != "cpu":
-        inputs = {key: value.to(device) for key, value in inputs.items()}
-    input_length = inputs["input_ids"].shape[1]
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-    new_tokens = outputs[:, input_length:]
-    response = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0]
-    return response.strip()
-
-
-def exact_match(predicted, ground_truth):
-    """Check for exact string match (case-insensitive)."""
-    return predicted.strip().lower() == ground_truth.strip().lower()
-
-
-def fuzzy_match(predicted, ground_truth, threshold=80):
-    """Check for fuzzy string match using token_set_ratio."""
-    score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
-    return score >= threshold
+from utils import (
+    get_device,
+    load_tokenizer_and_model,
+    generate_batch_responses,
+    exact_match,
+    fuzzy_match,
+)
 
 
 def evaluate_model(
@@ -134,7 +23,8 @@ def evaluate_model(
     Evaluate the fine-tuned model on the training dataset using batched inference.
     """
     device = get_device()
-    tokenizer, model = _load_tokenizer_and_model(model_path, model_id, device)
+    adapter_path = os.path.join(model_path, "final-adapter")
+    tokenizer, model = load_tokenizer_and_model(adapter_path, model_id, device)
 
     print("Loading dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
@@ -160,10 +50,12 @@ def evaluate_model(
         ground_truths = batch.get("answer", [])
         sample_ids = range(i, i + len(contexts))
 
-        predictions = [
-            generate_response(model, tokenizer, context, question, device)
-            for context, question in zip(contexts, questions)
+        messages_batch = [
+            [{"role": "user", "content": f"Context: {c}\n\nQuestion: {q}"}]
+            for c, q in zip(contexts, questions)
         ]
+
+        predictions = generate_batch_responses(model, tokenizer, messages_batch, device)
 
         # Calculate metrics for the batch
         for idx, context, question, truth, pred in zip(

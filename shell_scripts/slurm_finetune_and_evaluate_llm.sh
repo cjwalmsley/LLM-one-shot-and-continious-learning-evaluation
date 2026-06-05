@@ -5,6 +5,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:ampere:1
 #SBATCH --mem=96G
+#SBATCH --cpus-per-task=4
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate venv_llm

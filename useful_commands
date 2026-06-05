@@ -18,3 +18,6 @@ rsync -avP ~/"gdrive/Shared with Julia/Education/Kent University/PhD/work/annabe
 cd ~/LLM-one-shot-and-continious-learning-evaluation
 sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
 
+#3 copy results to gdrive
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/google/gemma-4-31B ~/"gdrive/PhD/work/annabell/experiments/95/llm_comparison/finetune/google"

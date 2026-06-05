@@ -11,13 +11,13 @@ class TestFinetune(unittest.TestCase):
 
         # Including new dataset schema fields to ensure they don't interfere
         example = {
-            'id': '0a9ea765-a925-482d-a471-41d82b2790ed',
-            'declarative_statement': 'The reactor core is safe.',
-            'question': 'Is the reactor core safe?',
-            'answer': 'Yes, the reactor core is safe.',
-            'grammatical_structure': 'Active Voice',
-            'raw_sentence': 'The reactor core is safe.',
-            'is_valid': True
+            "id": "0a9ea765-a925-482d-a471-41d82b2790ed",
+            "declarative_statement": "The reactor core is safe.",
+            "question": "Is the reactor core safe?",
+            "answer": "Yes, the reactor core is safe.",
+            "grammatical_structure": "Active Voice",
+            "raw_sentence": "The reactor core is safe.",
+            "is_valid": True,
         }
 
         # Act
@@ -29,28 +29,48 @@ class TestFinetune(unittest.TestCase):
         expected_messages = [
             {
                 "role": "user",
-                "content": "Context: The reactor core is safe.\n\nQuestion: Is the reactor core safe?"
+                "content": "Context: The reactor core is safe.\n\nQuestion: Is the reactor core safe?",
             },
-            {
-                "role": "assistant",
-                "content": "Yes, the reactor core is safe."
-            }
+            {"role": "assistant", "content": "Yes, the reactor core is safe."},
         ]
-        mock_tokenizer.apply_chat_template.assert_called_once_with(expected_messages, tokenize=False)
+        mock_tokenizer.apply_chat_template.assert_called_once_with(
+            expected_messages, tokenize=False
+        )
 
-    @patch.dict('os.environ', {'HF_TOKEN': 'test_token'})
-    @patch('sys.argv', ['finetune.py', '--model_id', 'custom-model-id', '--dataset_path', 'custom_dataset.jsonl'])
-    @patch('finetune.load_dotenv')
-    @patch('finetune.os.makedirs')
-    @patch('finetune.os.path.exists')
-    @patch('finetune.subprocess.run')
-    @patch('finetune.AutoTokenizer')
-    @patch('finetune.AutoModelForCausalLM')
-    @patch('finetune.load_dataset')
-    @patch('finetune.SFTTrainer')
-    @patch('finetune.SFTConfig')
-    def test_main(self, mock_sft_config, mock_sft_trainer, mock_load_dataset,
-                  mock_auto_model, mock_auto_tokenizer, mock_subprocess_run, mock_path_exists, mock_makedirs, mock_load_dotenv):
+    @patch.dict("os.environ", {"HF_TOKEN": "test_token"})
+    @patch(
+        "sys.argv",
+        [
+            "finetune.py",
+            "--model_id",
+            "custom-model-id",
+            "--dataset_path",
+            "custom_dataset.jsonl",
+        ],
+    )
+    @patch("finetune.load_dotenv")
+    @patch("finetune.os.makedirs")
+    @patch("finetune.os.path.exists")
+    @patch("finetune.AutoTokenizer")
+    @patch("finetune.AutoModelForCausalLM")
+    @patch("finetune.load_dataset")
+    @patch("finetune.SFTTrainer")
+    @patch("finetune.SFTConfig")
+    @patch("finetune.evaluate_model")
+    @patch("finetune.test_model")
+    def test_main(
+        self,
+        mock_test_model,
+        mock_evaluate_model,
+        mock_sft_config,
+        mock_sft_trainer,
+        mock_load_dataset,
+        mock_auto_model,
+        mock_auto_tokenizer,
+        mock_path_exists,
+        mock_makedirs,
+        mock_load_dotenv,
+    ):
         # Arrange
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()
@@ -74,31 +94,34 @@ class TestFinetune(unittest.TestCase):
         # Assert
         mock_auto_tokenizer.from_pretrained.assert_called_with("custom-model-id")
         self.assertEqual(mock_tokenizer_instance.pad_token, "<eos>")
-        mock_auto_model.from_pretrained.assert_called_with("custom-model-id", device_map="auto")
+        mock_auto_model.from_pretrained.assert_called_with(
+            "custom-model-id", device_map="auto"
+        )
         mock_load_dataset.assert_called_with("json", data_files="custom_dataset.jsonl")
 
         mock_trainer_instance.train.assert_called_once()
         mock_trainer_instance.model.save_pretrained.assert_called_once()
         mock_tokenizer_instance.save_pretrained.assert_called_once()
-        self.assertEqual(mock_subprocess_run.call_count, 2)
+        mock_evaluate_model.assert_called_once()
+        mock_test_model.assert_called_once()
 
     def test_dataset_splitting(self):
         """Test that dataset is correctly split based on is_pretraining flag"""
         # Arrange
         train_example = {
-            'id': 'train-1',
-            'question': 'What is X?',
-            'answer': 'X is Y',
-            'declarative_statement': 'X is Y.',
-            'is_pretraining': True
+            "id": "train-1",
+            "question": "What is X?",
+            "answer": "X is Y",
+            "declarative_statement": "X is Y.",
+            "is_pretraining": True,
         }
 
         test_example = {
-            'id': 'test-1',
-            'question': 'What is A?',
-            'answer': 'A is B',
-            'declarative_statement': 'A is B.',
-            'is_pretraining': False
+            "id": "test-1",
+            "question": "What is A?",
+            "answer": "A is B",
+            "declarative_statement": "A is B.",
+            "is_pretraining": False,
         }
 
         mock_tokenizer = MagicMock()
@@ -118,11 +141,17 @@ class TestFinetune(unittest.TestCase):
         mock_dataset.filter = filter_by_pretraining
 
         # Act - Simulate the splitting logic
-        train_dataset = mock_dataset.filter(lambda x: x.get("is_pretraining", False) == True)
-        test_dataset = mock_dataset.filter(lambda x: x.get("is_pretraining", False) == False)
+        train_dataset = mock_dataset.filter(
+            lambda x: x.get("is_pretraining", False) == True
+        )
+        test_dataset = mock_dataset.filter(
+            lambda x: x.get("is_pretraining", False) == False
+        )
 
         # Assert
-        self.assertEqual(len(train_dataset), 1, "Train dataset should contain 1 example")
+        self.assertEqual(
+            len(train_dataset), 1, "Train dataset should contain 1 example"
+        )
         self.assertEqual(len(test_dataset), 1, "Test dataset should contain 1 example")
 
         # Verify that formatting is applied to both datasets
@@ -133,5 +162,5 @@ class TestFinetune(unittest.TestCase):
         self.assertEqual(test_dataset.map.call_count, 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

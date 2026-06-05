@@ -79,7 +79,7 @@ def main():
         output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
     elif experiment and args.dataset_path:
         dataset_path = args.dataset_path
-        output_dir = f"/experiments/{experiment}/{model_id}"
+        output_dir = f"./experiments/{experiment}/{model_id}"
     elif not experiment and args.dataset_path:
         dataset_path = args.dataset_path
         output_dir = f"./{model_id}"

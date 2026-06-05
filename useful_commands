@@ -9,11 +9,12 @@ python test.py \
   --model_id google/gemma-4-E2B
 
 
-1 copy the dataset to the relevant directory
-rsync
+#Running on slurm
+#1 copy the dataset to the relevant directory
 
-rsync -avP ~/PycharmProjects/LLM-one-shot-and-continious-learning-evaluation/apptainer/annabell_WMSize5000_ElActfStSize480k.sif cjw81@hydra.kent.ac.uk:/home/bwc/cjw81/Training-and-evaluating-cognitive-language-models/apptainer/
+rsync -avP ~/"gdrive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl" cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/
 
-
-  Running on slurm ./shell_scripts/slurm_finetune_and_evaluate_llm.sh
+#2 launch the slurm script
+cd ~/LLM-one-shot-and-continious-learning-evaluation
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
 

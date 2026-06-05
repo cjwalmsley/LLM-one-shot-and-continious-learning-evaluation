@@ -14,21 +14,7 @@ from dotenv import load_dotenv
 import sys
 from evaluate import evaluate_model
 from test import test_model
-
-
-def format_prompt(example, tokenizer):
-    """
-    Structures the context, question, and answer into Gemma 4's native chat format.
-    """
-    messages = [
-        {
-            "role": "user",
-            "content": f"Context: {example['declarative_statement']}\n\nQuestion: {example['question']}",
-        },
-        {"role": "assistant", "content": example["answer"]},
-    ]
-    return {"text": tokenizer.apply_chat_template(messages, tokenize=False)}
-
+from model_adapters import get_model_config
 
 def main():
 
@@ -98,14 +84,11 @@ def main():
         os.makedirs(expanded_output_dir)
         print(f"Created output directory: {expanded_output_dir}")
 
+    model_config = get_model_config(model_id)
+
     print(f"Loading tokenizer for {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
-    # Gemma models generally do not define a pad token by default
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\n'}}{% endif %}"
+    tokenizer = model_config.setup_tokenizer(tokenizer)
 
     print("Loading model...")
     model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
@@ -117,16 +100,7 @@ def main():
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
-        # Target modules common to Gemma architectures
-        target_modules=[
-            "q_proj.linear",
-            "k_proj.linear",
-            "v_proj.linear",
-            "o_proj.linear",
-            "gate_proj.linear",
-            "up_proj.linear",
-            "down_proj.linear",
-        ],
+        target_modules=model_config.get_lora_target_modules(),
     )
 
     print("Loading and formatting dataset...")
@@ -143,8 +117,8 @@ def main():
     print(f"Test dataset size: {len(test_dataset)}")
 
     # Map the formatting function to both datasets
-    train_dataset = train_dataset.map(lambda x: format_prompt(x, tokenizer))
-    test_dataset = test_dataset.map(lambda x: format_prompt(x, tokenizer))
+    train_dataset = train_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
+    test_dataset = test_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
 

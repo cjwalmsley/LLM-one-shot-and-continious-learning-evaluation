@@ -3,6 +3,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 from rapidfuzz import fuzz
+from model_adapters import get_model_config
 
 def get_device():
     """Detect and return the appropriate device (AMD ROCm compatible)."""
@@ -26,12 +27,10 @@ def get_device():
 def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False):
     """Loads the base model and attaches the specified adapter."""
     print(f"Loading tokenizer and model from {adapter_path}...")
-    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
+    model_config = get_model_config(model_id)
 
-    # CRITICAL FOR BATCHING: Set pad token and force left-padding
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
+    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
+    tokenizer = model_config.setup_tokenizer(tokenizer)
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,

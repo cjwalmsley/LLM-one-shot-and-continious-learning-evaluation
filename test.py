@@ -18,7 +18,7 @@ from utils import (
     exact_match,
     fuzzy_match,
 )
-
+from model_adapters import get_model_config
 
 def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
     """Mode 1: Prompt model with Context and Question simultaneously (Batched)."""
@@ -135,10 +135,9 @@ def run_mode_3(
     """Mode 3: Parametric Memory Consolidation (Secondary Fine-Tuning - Batched Inference)."""
     print("\n--- Running Mode 3: Parametric Memory (Weights Fine-Tuning) ---")
 
-    def format_mode3_train(example):
-        return {"text": example["declarative_statement"]}
+    model_config = get_model_config(model_id)
 
-    mode3_train_data = test_dataset.map(format_mode3_train)
+    mode3_train_data = test_dataset.map(model_config.format_mode3_train)
     mode3_adapter_dir = os.path.join(output_dir, "mode3_adapter")
 
     print("  Pass 1: Fine-tuning weights on declarative statements...")
@@ -252,46 +251,6 @@ def run_mode_3(
     return results, exact_count, fuzzy_count
 
 
-def _detect_lora_target_modules(model, preferred=None):
-    if preferred is None:
-        preferred = [
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj",
-        ]
-
-    supported = (
-        torch.nn.Linear,
-        torch.nn.Embedding,
-        torch.nn.Conv1d,
-        torch.nn.Conv2d,
-        torch.nn.Conv3d,
-    )
-    supported_module_names = {
-        name for name, module in model.named_modules() if isinstance(module, supported)
-    }
-
-    matches = []
-    for pref in preferred:
-        linear_suffix = f"{pref}.linear"
-        if any(name.endswith(linear_suffix) for name in supported_module_names):
-            matches.append(linear_suffix)
-            continue
-
-        plain_suffix = f".{pref}"
-        if any(
-            name == pref or name.endswith(plain_suffix)
-            for name in supported_module_names
-        ):
-            matches.append(pref)
-
-    return list(dict.fromkeys(matches))
-
-
 def run_mode_4(
     original_adapter_path,
     dataset_path,
@@ -304,20 +263,17 @@ def run_mode_4(
     """Mode 4: Continued Pre-Training (CPT) on Declarative Statements + QA Stacking."""
     print("\n--- Running Mode 4: Continued Pre-Training (LoRA Stacking) ---")
 
-    # 1. Format the dataset for CPT using the declarative statements exclusively
-    def format_cpt_train(example):
-        return {"text": example["declarative_statement"]}
+    model_config = get_model_config(model_id)
 
-    cpt_train_data = test_dataset.map(format_cpt_train)
+    # 1. Format the dataset for CPT using the declarative statements exclusively
+    cpt_train_data = test_dataset.map(model_config.format_cpt_train)
     mode4_cpt_dir = os.path.join(output_dir, "mode4_cpt_adapter")
 
     print("  Pass 1: Pre-training base model on continuous declarative statements...")
 
     # Load fresh base model and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(original_adapter_path)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
+    tokenizer = model_config.setup_tokenizer(tokenizer)
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
@@ -328,7 +284,7 @@ def run_mode_4(
     # Setup temporary LoRA adapter specifically for CPT
     from peft import LoraConfig, get_peft_model
 
-    target_modules = _detect_lora_target_modules(base_model)
+    target_modules = model_config.get_lora_target_modules()
     if not target_modules:
         raise RuntimeError(
             "No matching LoRA target modules found for CPT. "

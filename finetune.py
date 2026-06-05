@@ -12,6 +12,8 @@ import argparse
 import os
 from dotenv import load_dotenv
 import sys
+from evaluate import evaluate_model
+from test import test_model
 
 
 def format_prompt(example, tokenizer):
@@ -199,63 +201,39 @@ def main():
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
-    # Run evaluation via subprocess to isolate VRAM
-    print("\n" + "=" * 60)
-    print("Starting model evaluation...")
-    print("=" * 60)
-    eval_output_dir = f"{expanded_output_dir}/evaluation"
+        # Run evaluation natively
+        print("\n" + "=" * 60)
+        print("Starting model evaluation...")
+        print("=" * 60)
+        eval_output_dir = f"{expanded_output_dir}/evaluation"
 
-    try:
-        subprocess.run(
-            [
-                sys.executable,
-                "evaluate.py",
-                "--model_path",
-                expanded_output_dir,
-                "--dataset_path",
-                expanded_dataset_path,
-                "--output_dir",
-                eval_output_dir,
-                "--model_id",
-                model_id,
-            ],
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        print(
-            f"Warning: Evaluation failed. Subprocess exited with error code: {e.returncode}"
-        )
-    except Exception as e:
-        print(f"Warning: Evaluation failed with error: {e}")
+        try:
+            evaluate_model(
+                model_path=expanded_output_dir,
+                dataset_path=expanded_dataset_path,
+                output_dir=eval_output_dir,
+                model_id=model_id,
+                batch_size=16,
+            )
+        except Exception as e:
+            print(f"Warning: Evaluation failed with error: {e}")
 
-    # Run testing on unseen data via subprocess to isolate VRAM
-    print("\n" + "=" * 60)
-    print("Starting formal testing phase...")
-    print("=" * 60)
-    test_output_dir = f"{expanded_output_dir}/testing"
+        # Run testing natively
+        print("\n" + "=" * 60)
+        print("Starting formal testing phase...")
+        print("=" * 60)
+        test_output_dir = f"{expanded_output_dir}/testing"
 
-    try:
-        subprocess.run(
-            [
-                sys.executable,
-                "test.py",
-                "--model_path",
-                expanded_output_dir,
-                "--dataset_path",
-                expanded_dataset_path,
-                "--output_dir",
-                test_output_dir,
-                "--model_id",
-                model_id,
-            ],
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        print(
-            f"Warning: Testing failed. Subprocess exited with error code: {e.returncode}"
-        )
-    except Exception as e:
-        print(f"Warning: Testing failed with error: {e}")
+        try:
+            test_model(
+                model_path=expanded_output_dir,
+                dataset_path=expanded_dataset_path,
+                output_dir=test_output_dir,
+                model_id=model_id,
+                batch_size=16,
+            )
+        except Exception as e:
+            print(f"Warning: Testing failed with error: {e}")
 
 
 if __name__ == "__main__":

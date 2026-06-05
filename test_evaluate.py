@@ -4,14 +4,18 @@ import json
 import tempfile
 import os
 from evaluate import evaluate_model
+from utils import exact_match, fuzzy_match
+
 
 class TestEvaluateModel(unittest.TestCase):
     """Test evaluate_model function"""
-    @patch('evaluate.load_tokenizer_and_model')
-    @patch('evaluate.load_dataset')
-    @patch('builtins.open', new_callable=mock_open)
-    def test_evaluate_model_creates_output_files(self, mock_file, mock_load_dataset,
-                                                  mock_load_tokenizer_and_model):
+
+    @patch("evaluate.load_tokenizer_and_model")
+    @patch("evaluate.load_dataset")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_evaluate_model_creates_output_files(
+        self, mock_file, mock_load_dataset, mock_load_tokenizer_and_model
+    ):
         """Test that evaluate_model creates output files"""
         # Setup mocks
         mock_tokenizer = MagicMock()
@@ -26,11 +30,11 @@ class TestEvaluateModel(unittest.TestCase):
         # Mock sample records
         sample_records = [
             {
-                'id': '1',
-                'declarative_statement': 'Test context',
-                'question': 'Test question?',
-                'answer': 'Test answer',
-                'is_pretraining': True
+                "id": "1",
+                "declarative_statement": "Test context",
+                "question": "Test question?",
+                "answer": "Test answer",
+                "is_pretraining": True,
             }
         ]
         filtered_dataset = MagicMock()
@@ -39,15 +43,19 @@ class TestEvaluateModel(unittest.TestCase):
         mock_dataset_train.filter.return_value = filtered_dataset
         with tempfile.TemporaryDirectory() as tmpdir:
             # Act
-            with patch('evaluate.generate_batch_responses', return_value=['Model response']):
-                evaluate_model(tmpdir, 'test_dataset.jsonl', tmpdir)
+            with patch(
+                "evaluate.generate_batch_responses", return_value=["Model response"]
+            ):
+                evaluate_model(tmpdir, "test_dataset.jsonl", tmpdir)
             # Assert
             self.assertTrue(mock_file.called)
-    @patch('evaluate.load_tokenizer_and_model')
-    @patch('evaluate.load_dataset')
-    @patch('builtins.open', new_callable=mock_open)
-    def test_evaluate_model_calculates_metrics(self, mock_file, mock_load_dataset,
-                                               mock_load_tokenizer_and_model):
+
+    @patch("evaluate.load_tokenizer_and_model")
+    @patch("evaluate.load_dataset")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_evaluate_model_calculates_metrics(
+        self, mock_file, mock_load_dataset, mock_load_tokenizer_and_model
+    ):
         """Test that evaluate_model calculates metrics correctly"""
         # Setup mocks
         mock_tokenizer = MagicMock()
@@ -56,19 +64,19 @@ class TestEvaluateModel(unittest.TestCase):
         # Mock dataset
         sample_records = [
             {
-                'id': '1',
-                'declarative_statement': 'Context',
-                'question': 'Q?',
-                'answer': 'Answer A',
-                'is_pretraining': True
+                "id": "1",
+                "declarative_statement": "Context",
+                "question": "Q?",
+                "answer": "Answer A",
+                "is_pretraining": True,
             },
             {
-                'id': '2',
-                'declarative_statement': 'Context 2',
-                'question': 'Q2?',
-                'answer': 'Answer B',
-                'is_pretraining': True
-            }
+                "id": "2",
+                "declarative_statement": "Context 2",
+                "question": "Q2?",
+                "answer": "Answer B",
+                "is_pretraining": True,
+            },
         ]
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
@@ -79,13 +87,16 @@ class TestEvaluateModel(unittest.TestCase):
         filtered_dataset.__iter__ = MagicMock(return_value=iter(sample_records))
         mock_dataset_train.filter.return_value = filtered_dataset
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('evaluate.generate_batch_responses') as mock_gen:
-                mock_gen.return_value = ['Answer A', 'Answer B']
-                summary = evaluate_model(tmpdir, 'test.jsonl', tmpdir)
-            self.assertIn('total_samples', summary)
-            self.assertEqual(summary['total_samples'], 2)
+            with patch("evaluate.generate_batch_responses") as mock_gen:
+                mock_gen.return_value = ["Answer A", "Answer B"]
+                summary = evaluate_model(tmpdir, "test.jsonl", tmpdir)
+            self.assertIn("total_samples", summary)
+            self.assertEqual(summary["total_samples"], 2)
+
+
 class TestEvaluationIntegration(unittest.TestCase):
     """Integration tests for evaluation workflow"""
+
     def test_exact_and_fuzzy_match_consistency(self):
         """Test that exact matches are also fuzzy matches"""
         test_string = "The reactor is safe"
@@ -93,6 +104,7 @@ class TestEvaluationIntegration(unittest.TestCase):
         fuzzy = fuzzy_match(test_string, test_string)
         self.assertTrue(exact)
         self.assertTrue(fuzzy)
+
     def test_matching_functions_with_real_examples(self):
         """Test matching functions with realistic QA examples"""
         # Example 1: Exact match scenario
@@ -108,6 +120,7 @@ class TestEvaluationIntegration(unittest.TestCase):
         prediction3 = "The reactor is not safe"
         self.assertFalse(exact_match(prediction3, ground_truth))
         self.assertFalse(fuzzy_match(prediction3, ground_truth))
+
     def test_edge_cases_with_special_characters(self):
         """Test matching with special characters"""
         ground_truth = "It's a safe, secure reactor."
@@ -116,8 +129,11 @@ class TestEvaluationIntegration(unittest.TestCase):
         self.assertFalse(exact_match(prediction, ground_truth))
         # Fuzzy match should succeed
         self.assertTrue(fuzzy_match(prediction, ground_truth))
+
+
 class TestDataFormatting(unittest.TestCase):
     """Test data formatting and structure"""
+
     def test_evaluation_result_structure(self):
         """Test that evaluation results have correct structure"""
         result = {
@@ -127,13 +143,21 @@ class TestDataFormatting(unittest.TestCase):
             "ground_truth": "answer",
             "predicted": "answer",
             "exact_match": True,
-            "fuzzy_match": True
+            "fuzzy_match": True,
         }
         # Verify all required fields exist
-        required_fields = ["sample_id", "context", "question", "ground_truth", 
-                          "predicted", "exact_match", "fuzzy_match"]
+        required_fields = [
+            "sample_id",
+            "context",
+            "question",
+            "ground_truth",
+            "predicted",
+            "exact_match",
+            "fuzzy_match",
+        ]
         for field in required_fields:
             self.assertIn(field, result)
+
     def test_summary_statistics_structure(self):
         """Test that summary statistics have correct structure"""
         summary = {
@@ -141,14 +165,8 @@ class TestDataFormatting(unittest.TestCase):
             "model_path": "path",
             "dataset_path": "path",
             "total_samples": 100,
-            "exact_match": {
-                "count": 75,
-                "accuracy": "75.00%"
-            },
-            "fuzzy_match": {
-                "count": 90,
-                "accuracy": "90.00%"
-            }
+            "exact_match": {"count": 75, "accuracy": "75.00%"},
+            "fuzzy_match": {"count": 90, "accuracy": "90.00%"},
         }
         # Verify structure
         self.assertIn("exact_match", summary)
@@ -156,5 +174,6 @@ class TestDataFormatting(unittest.TestCase):
         self.assertIn("count", summary["exact_match"])
         self.assertIn("accuracy", summary["exact_match"])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

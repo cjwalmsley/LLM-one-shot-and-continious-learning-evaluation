@@ -73,6 +73,8 @@ def main():
 
     experiment = args.experiment
 
+    safe_dir_name = model_id.replace("/", "-")
+
     # if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
     if experiment and not args.dataset_path:
         dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
@@ -82,10 +84,10 @@ def main():
         output_dir = f"./experiments/{experiment}/{model_id}"
     elif not experiment and args.dataset_path:
         dataset_path = args.dataset_path
-        output_dir = f"./{model_id}"
+        output_dir = f"./{safe_dir_name}"
     else:
         dataset_path = "sample_dataset.jsonl"
-        output_dir = f"./{model_id}"
+        output_dir = f"./{safe_dir_name}"
 
     # check if the dataset_path exists
     expanded_dataset_path = os.path.expanduser(dataset_path)
@@ -166,7 +168,8 @@ def main():
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         warmup_steps=10,
-        max_steps=200,
+        # max_steps=200,
+        num_train_epochs=200,
         learning_rate=2e-4,
         bf16=use_bf16,
         fp16=use_fp16,

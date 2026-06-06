@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from finetune import format_prompt, main
+from finetune import main
+from model_adapters import GemmaModelConfig
 
 
 class TestFinetune(unittest.TestCase):
@@ -8,6 +9,7 @@ class TestFinetune(unittest.TestCase):
         # Arrange
         mock_tokenizer = MagicMock()
         mock_tokenizer.apply_chat_template.return_value = "mock_templated_text"
+        model_config = GemmaModelConfig()
 
         # Including new dataset schema fields to ensure they don't interfere
         example = {
@@ -21,7 +23,7 @@ class TestFinetune(unittest.TestCase):
         }
 
         # Act
-        result = format_prompt(example, mock_tokenizer)
+        result = model_config.format_prompt(example, mock_tokenizer)
 
         # Assert
         self.assertEqual(result, {"text": "mock_templated_text"})
@@ -56,12 +58,14 @@ class TestFinetune(unittest.TestCase):
     @patch("finetune.load_dataset")
     @patch("finetune.SFTTrainer")
     @patch("finetune.SFTConfig")
+    @patch("finetune.torch")
     @patch("finetune.evaluate_model")
     @patch("finetune.test_model")
     def test_main(
         self,
         mock_test_model,
         mock_evaluate_model,
+        mock_torch,
         mock_sft_config,
         mock_sft_trainer,
         mock_load_dataset,
@@ -72,6 +76,7 @@ class TestFinetune(unittest.TestCase):
         mock_load_dotenv,
     ):
         # Arrange
+        mock_torch.cuda.is_available.return_value = True
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()
         mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
@@ -155,8 +160,9 @@ class TestFinetune(unittest.TestCase):
         self.assertEqual(len(test_dataset), 1, "Test dataset should contain 1 example")
 
         # Verify that formatting is applied to both datasets
-        train_dataset.map(lambda x: format_prompt(x, mock_tokenizer))
-        test_dataset.map(lambda x: format_prompt(x, mock_tokenizer))
+        model_config = GemmaModelConfig()
+        train_dataset.map(lambda x: model_config.format_prompt(x, mock_tokenizer))
+        test_dataset.map(lambda x: model_config.format_prompt(x, mock_tokenizer))
 
         self.assertEqual(train_dataset.map.call_count, 1)
         self.assertEqual(test_dataset.map.call_count, 1)

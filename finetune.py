@@ -16,6 +16,7 @@ from evaluate import evaluate_model
 from test import test_model
 from model_adapters import get_model_config
 
+
 def main():
 
     #   python finetune_gemma4.py --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl"
@@ -119,7 +120,9 @@ def main():
     print(f"Test dataset size: {len(test_dataset)}")
 
     # Map the formatting function to both datasets
-    train_dataset = train_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
+    train_dataset = train_dataset.map(
+        lambda x: model_config.format_prompt(x, tokenizer)
+    )
     test_dataset = test_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
@@ -150,7 +153,8 @@ def main():
         logging_steps=10,
         optim="adamw_torch",  # Uses native PyTorch AdamW instead of CUDA bnb optimizer
         save_strategy="steps",
-        save_steps=50,
+        save_steps=10000,
+        save_total_limit=1,
         dataloader_num_workers=4,  # Pre-fetches data tokens via CPU threads
         report_to="none",
         dataset_text_field="text",

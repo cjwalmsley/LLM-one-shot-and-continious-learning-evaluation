@@ -20,6 +20,7 @@ from utils import (
 )
 from model_adapters import get_model_config
 
+
 def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
     """Mode 1: Prompt model with Context and Question simultaneously (Batched)."""
     print("\n--- Running Mode 1: Context + Question (Isolated Memory - Batched) ---")
@@ -110,6 +111,64 @@ def run_mode_2(model, tokenizer, test_dataset, device):
             {
                 "sample_id": idx,
                 "mode": 2,
+                "question": question,
+                "ground_truth": ground_truth,
+                "predicted": predicted,
+                "exact_match": exact,
+                "fuzzy_match": fuzzy,
+            }
+        )
+        if (idx + 1) % 10 == 0:
+            print(f"    Answered {idx + 1}/{total} questions")
+
+    return results, exact_count, fuzzy_count
+
+
+def run_mode_2_1(model, tokenizer, test_dataset, device):
+    """Mode 2.1: Two-pass continuous context (Working Memory - Sequential) using Base Model."""
+    print(
+        "\n--- Running Mode 2.1: Continuous Context (Base Model Baseline - No LoRA) ---"
+    )
+    print(
+        "  (Running sequentially to establish working memory baseline without fine-tuned weights)"
+    )
+    results = []
+    exact_count, fuzzy_count = 0, 0
+    total = len(test_dataset)
+    messages = []
+
+    print("  Pass 1: Loading declarative statements into context...")
+    for idx, sample in enumerate(test_dataset):
+        statement = sample.get("declarative_statement", "")
+        messages.append(
+            {"role": "user", "content": f"Please remember this fact: {statement}"}
+        )
+        reply = generate_single_response(
+            model, tokenizer, messages, device, max_new_tokens=50
+        )
+        messages.append({"role": "assistant", "content": reply})
+
+    print("  Pass 2: Prompting questions from continuous context...")
+    for idx, sample in enumerate(test_dataset):
+        question = sample.get("question", "")
+        ground_truth = sample.get("answer", "")
+
+        messages.append({"role": "user", "content": f"Question: {question}"})
+        predicted = generate_single_response(model, tokenizer, messages, device)
+        messages.append({"role": "assistant", "content": predicted})
+
+        exact = exact_match(predicted, ground_truth)
+        fuzzy = fuzzy_match(predicted, ground_truth)
+
+        if exact:
+            exact_count += 1
+        if fuzzy:
+            fuzzy_count += 1
+
+        results.append(
+            {
+                "sample_id": idx,
+                "mode": 2.1,
                 "question": question,
                 "ground_truth": ground_truth,
                 "predicted": predicted,
@@ -448,16 +507,25 @@ def test_model(
     os.makedirs(output_dir, exist_ok=True)
     original_adapter = os.path.join(model_path, "final-adapter")
 
-    # Load base model for Modes 1 & 2
+    # Load base model for Modes 1 & 2 (and 2.1)
     tokenizer, model = load_tokenizer_and_model(original_adapter, model_id, device)
 
-    # Execute Mode 1 (Batched) & Mode 2 (Sequential)
+    # Execute Mode 1 (Batched)
     results_m1, exact_m1, fuzzy_m1 = run_mode_1(
         model, tokenizer, test_dataset, device, batch_size
     )
+
+    # Execute Mode 2.1 (Sequential - Base Model Only)
+    with model.disable_adapter():
+        results_m2_1, exact_m2_1, fuzzy_m2_1 = run_mode_2_1(
+            model, tokenizer, test_dataset, device
+        )
+
+    # Execute Mode 2 (Sequential - Fine-Tuned LoRA)
     results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device)
 
-    print("  [System] Tearing down Mode 1 & 2 computational graph to free VRAM...")
+    print("  [System] Tearing down Mode 1, 2.1 & 2 computational graph to free VRAM...")
+    # ... existing teardown logic ...
     del model
     del tokenizer
     release_memory()
@@ -488,7 +556,7 @@ def test_model(
         batch_size,
     )
 
-    all_results = results_m1 + results_m2 + results_m3 + results_m4
+    all_results = results_m1 + results_m2_1 + results_m2 + results_m3 + results_m4
     results_file = os.path.join(output_dir, "test_results.jsonl")
     with open(results_file, "w") as f:
         for res in all_results:
@@ -502,6 +570,10 @@ def test_model(
         "mode_1_isolated": {
             "exact_match_accuracy": f"{(exact_m1 / total_samples) * 100:.2f}%",
             "fuzzy_match_accuracy": f"{(fuzzy_m1 / total_samples) * 100:.2f}%",
+        },
+        "mode_2_1_continuous_base": {
+            "exact_match_accuracy": f"{(exact_m2_1 / total_samples) * 100:.2f}%",
+            "fuzzy_match_accuracy": f"{(fuzzy_m2_1 / total_samples) * 100:.2f}%",
         },
         "mode_2_continuous": {
             "exact_match_accuracy": f"{(exact_m2 / total_samples) * 100:.2f}%",
@@ -539,6 +611,14 @@ def test_model(
     )
     print(
         f"Fuzzy Match: {fuzzy_m2}/{total_samples} ({summary['mode_2_continuous']['fuzzy_match_accuracy']})"
+    )
+
+    print("\n[Mode 2.1: Continuous Context (Base Model Baseline - No LoRA)]")
+    print(
+        f"Exact Match: {exact_m2_1}/{total_samples} ({summary['mode_2_1_continuous_base']['exact_match_accuracy']})"
+    )
+    print(
+        f"Fuzzy Match: {fuzzy_m2_1}/{total_samples} ({summary['mode_2_1_continuous_base']['fuzzy_match_accuracy']})"
     )
 
     print("\n[Mode 3: Parametric Memory (Secondary Fine-Tuning - Batched)]")

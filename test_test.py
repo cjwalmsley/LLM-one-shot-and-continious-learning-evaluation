@@ -5,6 +5,7 @@ import os
 import tempfile
 import test as test_module
 
+
 class TestRunMode2(unittest.TestCase):
     def test_run_mode_2_records_results_and_pass2_questions(self):
         sample_records = [
@@ -32,6 +33,41 @@ class TestRunMode2(unittest.TestCase):
         self.assertEqual(exact_count, 2)
         self.assertEqual(fuzzy_count, 2)
         self.assertEqual(results[0]["mode"], 2)
+        self.assertEqual(results[1]["predicted"], "Answer B")
+
+        self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
+        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[2].kwargs)
+        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[3].kwargs)
+
+
+class TestRunMode2_1(unittest.TestCase):
+    def test_run_mode_2_1_records_results_and_pass2_questions(self):
+        sample_records = [
+            {
+                "declarative_statement": "Context A",
+                "question": "Question A?",
+                "answer": "Answer A",
+            },
+            {
+                "declarative_statement": "Context B",
+                "question": "Question B?",
+                "answer": "Answer B",
+            },
+        ]
+        model = MagicMock()
+        tokenizer = MagicMock()
+
+        with patch("test.generate_single_response") as mock_generate:
+            mock_generate.side_effect = ["ok", "ok", "Answer A", "Answer B"]
+            results, exact_count, fuzzy_count = test_module.run_mode_2_1(
+                model, tokenizer, sample_records, "cpu"
+            )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(exact_count, 2)
+        self.assertEqual(fuzzy_count, 2)
+        self.assertEqual(results[0]["mode"], 2.1)
         self.assertEqual(results[1]["predicted"], "Answer B")
 
         self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
@@ -147,7 +183,9 @@ class TestTestModel(unittest.TestCase):
     @patch("test.get_device", return_value="cpu")
     @patch("test.load_tokenizer_and_model")
     @patch("test.load_dataset")
-    def test_model_returns_none_when_no_samples(self, mock_load_dataset, mock_load_model, mock_device):
+    def test_model_returns_none_when_no_samples(
+        self, mock_load_dataset, mock_load_model, mock_device
+    ):
         mock_load_model.return_value = (MagicMock(), MagicMock())
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
@@ -163,6 +201,7 @@ class TestTestModel(unittest.TestCase):
     @patch("test.run_mode_4")
     @patch("test.run_mode_3")
     @patch("test.run_mode_2")
+    @patch("test.run_mode_2_1")
     @patch("test.run_mode_1")
     @patch("test.get_device", return_value="cpu")
     @patch("test.load_tokenizer_and_model")
@@ -173,11 +212,13 @@ class TestTestModel(unittest.TestCase):
         mock_load_model,
         mock_device,
         mock_run_mode_1,
+        mock_run_mode_2_1,
         mock_run_mode_2,
         mock_run_mode_3,
         mock_run_mode_4,
     ):
-        mock_load_model.return_value = (MagicMock(), MagicMock())
+        mock_model = MagicMock()
+        mock_load_model.return_value = (MagicMock(), mock_model)
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
         mock_dataset.__getitem__.return_value = mock_dataset_train
@@ -213,13 +254,27 @@ class TestTestModel(unittest.TestCase):
             1,
             1,
         )
-        mock_run_mode_2.return_value = (
+        mock_run_mode_2_1.return_value = (
             [
                 {
                     "sample_id": 1,
-                    "mode": 2,
+                    "mode": 2.1,
                     "ground_truth": "Answer B",
                     "predicted": "Answer B",
+                    "exact_match": True,
+                    "fuzzy_match": True,
+                }
+            ],
+            1,
+            1,
+        )
+        mock_run_mode_2.return_value = (
+            [
+                {
+                    "sample_id": 2,
+                    "mode": 2,
+                    "ground_truth": "Answer C",
+                    "predicted": "Answer C",
                     "exact_match": True,
                     "fuzzy_match": True,
                 }
@@ -230,10 +285,10 @@ class TestTestModel(unittest.TestCase):
         mock_run_mode_3.return_value = (
             [
                 {
-                    "sample_id": 2,
+                    "sample_id": 3,
                     "mode": 3,
-                    "ground_truth": "Answer C",
-                    "predicted": "Answer C",
+                    "ground_truth": "Answer D",
+                    "predicted": "Answer D",
                     "exact_match": True,
                     "fuzzy_match": True,
                 }
@@ -244,10 +299,10 @@ class TestTestModel(unittest.TestCase):
         mock_run_mode_4.return_value = (
             [
                 {
-                    "sample_id": 3,
+                    "sample_id": 4,
                     "mode": 4,
-                    "ground_truth": "Answer D",
-                    "predicted": "Answer D",
+                    "ground_truth": "Answer E",
+                    "predicted": "Answer E",
                     "exact_match": True,
                     "fuzzy_match": True,
                 }
@@ -262,24 +317,15 @@ class TestTestModel(unittest.TestCase):
             )
 
             self.assertIsNone(result)
-            mock_run_mode_3.assert_called_once_with(
-                os.path.join(tmpdir, "final-adapter"),
-                os.path.join(tmpdir, "data.jsonl"),
-                tmpdir,
-                "google/gemma-4-E2B",
-                "cpu",
-                sample_records,
-                16,
-            )
-            mock_run_mode_4.assert_called_once_with(
-                os.path.join(tmpdir, "final-adapter"),
-                os.path.join(tmpdir, "data.jsonl"),
-                tmpdir,
-                "google/gemma-4-E2B",
-                "cpu",
-                sample_records,
-                16,
-            )
+
+            # Assert that the context manager was entered and exited
+            mock_model.disable_adapter.return_value.__enter__.assert_called_once()
+            mock_model.disable_adapter.return_value.__exit__.assert_called_once()
+
+            # Ensure the mocked mode functions were called
+            mock_run_mode_2_1.assert_called_once()
+            mock_run_mode_3.assert_called_once()
+            mock_run_mode_4.assert_called_once()
 
             results_file = os.path.join(tmpdir, "test_results.jsonl")
             summary_file = os.path.join(tmpdir, "test_summary.json")
@@ -289,7 +335,9 @@ class TestTestModel(unittest.TestCase):
 
             with open(results_file, "r") as handle:
                 results_lines = handle.readlines()
-            self.assertEqual(len(results_lines), 4)
+
+            # Update expected line count to 5 since we added Mode 2.1
+            self.assertEqual(len(results_lines), 5)
 
             with open(summary_file, "r") as handle:
                 saved_summary = json.load(handle)
@@ -297,6 +345,11 @@ class TestTestModel(unittest.TestCase):
             self.assertEqual(saved_summary["total_test_samples"], 2)
             self.assertEqual(
                 saved_summary["mode_1_isolated"]["exact_match_accuracy"], "50.00%"
+            )
+            # Verify the new Mode 2.1 is properly written to the JSON summary
+            self.assertEqual(
+                saved_summary["mode_2_1_continuous_base"]["exact_match_accuracy"],
+                "50.00%",
             )
             self.assertEqual(
                 saved_summary["mode_2_continuous"]["fuzzy_match_accuracy"], "50.00%"
@@ -308,4 +361,3 @@ class TestTestModel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

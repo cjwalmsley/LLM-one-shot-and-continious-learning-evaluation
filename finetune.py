@@ -7,14 +7,13 @@ from transformers import (
 )
 from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
-import subprocess
 import argparse
 import os
 from dotenv import load_dotenv
-import sys
 from evaluate import evaluate_model
 from test import test_model
 from model_adapters import get_model_config
+import datetime
 
 
 def main():
@@ -75,6 +74,8 @@ def main():
     else:
         dataset_path = "sample_dataset.jsonl"
         output_dir = f"./{safe_dir_name}"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    output_dir = f"{output_dir}/{timestamp}"
 
     # check if the dataset_path exists
     expanded_dataset_path = os.path.expanduser(dataset_path)

@@ -39,7 +39,21 @@ def main():
         default=None,
         help="The name of the experiment that the finetuning dataset is from",
     )
+    parser.add_argument(
+        "--use_thinking",
+        action="store_true",
+        default=None,
+        help="Enable thinking mode (if supported by the model)",
+    )
+    parser.add_argument(
+        "--disable_thinking",
+        action="store_true",
+        default=False,
+        help="Explicitly disable thinking mode",
+    )
     args = parser.parse_args()
+
+    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
 
     # Load environment variables from .env file
     if os.path.exists(".env"):
@@ -88,7 +102,7 @@ def main():
         os.makedirs(expanded_output_dir)
         print(f"Created output directory: {expanded_output_dir}")
 
-    model_config = get_model_config(model_id)
+    model_config = get_model_config(model_id, use_thinking=use_thinking)
 
     print(f"Loading tokenizer for {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)

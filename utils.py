@@ -24,10 +24,10 @@ def get_device():
         print("✓ No GPU detected, using CPU")
         return "cpu"
 
-def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False):
+def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False, use_thinking=None, return_config=False):
     """Loads the base model and attaches the specified adapter."""
     print(f"Loading tokenizer and model from {adapter_path}...")
-    model_config = get_model_config(model_id)
+    model_config = get_model_config(model_id, use_thinking=use_thinking)
 
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
     tokenizer = model_config.setup_tokenizer(tokenizer)
@@ -50,6 +50,8 @@ def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False)
             if "lora" in name.lower():
                 param.requires_grad = True
 
+    if return_config:
+        return tokenizer, model, model_config
     return tokenizer, model
 
 def generate_batch_responses(model, tokenizer, messages_batch, device, max_new_tokens=50):

@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 class ModelConfig(ABC):
     """Abstract base class for model configurations."""
+
+    def __init__(self, use_thinking: Optional[bool] = None):
+        self.use_thinking = use_thinking if use_thinking is not None else False
 
     @abstractmethod
     def get_lora_target_modules(self) -> List[str]:
         """Return the target modules for LoRA."""
         pass
+
+    def get_max_new_tokens(self) -> int:
+        """Return the max new tokens for generation."""
+        return 50  # Default value
 
     def format_prompt(self, example: Dict[str, Any], tokenizer: Any) -> Dict[str, str]:
         """Format the dataset example for SFT training."""
@@ -38,6 +45,8 @@ class ModelConfig(ABC):
 
 class GemmaModelConfig(ModelConfig):
     """Configuration for Gemma models."""
+    def __init__(self, use_thinking: Optional[bool] = None):
+        super().__init__(use_thinking=False) # Thinking mode not supported
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -59,6 +68,12 @@ class GemmaModelConfig(ModelConfig):
 
 class DeepSeekModelConfig(ModelConfig):
     """Configuration for DeepSeek models."""
+    def __init__(self, use_thinking: Optional[bool] = None):
+        # DeepSeek R1 models have thinking builtin without a flag, but we allow configuration
+        super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
+
+    def get_max_new_tokens(self) -> int:
+        return 8192 if self.use_thinking else 1024
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -71,15 +86,41 @@ class DeepSeekModelConfig(ModelConfig):
             "down_proj",
         ]
 
-def get_model_config(model_id: str) -> ModelConfig:
+class QwenModelConfig(ModelConfig):
+    """Configuration for Qwen models."""
+    def __init__(self, use_thinking: Optional[bool] = None):
+        super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
+
+    def get_max_new_tokens(self) -> int:
+        return 32768 if self.use_thinking else 1024
+
+    def get_lora_target_modules(self) -> List[str]:
+        return [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+
+def get_model_config(model_id: str, use_thinking: Optional[bool] = None) -> ModelConfig:
     """Factory function to get the appropriate model configuration."""
     model_id_lower = model_id.lower()
     if "gemma" in model_id_lower:
-        return GemmaModelConfig()
+        return GemmaModelConfig(use_thinking=use_thinking)
+    elif "qwq" in model_id_lower or "qwen" in model_id_lower:
+        # Check Qwen first because DeepSeek R1 Distill Qwen will match both "deepseek" and "qwen"
+        # Since it is a Qwen architecture underneath, QwenModelConfig is appropriate for its chat template
+        # However, for backwards compatibility with DeepSeek configs we will check DeepSeek first
+        if "deepseek" in model_id_lower:
+            return DeepSeekModelConfig(use_thinking=use_thinking)
+        return QwenModelConfig(use_thinking=use_thinking)
     elif "deepseek" in model_id_lower:
-        return DeepSeekModelConfig()
+        return DeepSeekModelConfig(use_thinking=use_thinking)
     else:
         # Fallback to a default config or raise an error
         # Assuming Gemma as the default fallback for existing codebase behavior
         print(f"Warning: No specific config found for {model_id}. Defaulting to Gemma config.")
-        return GemmaModelConfig()
+        return GemmaModelConfig(use_thinking=use_thinking)

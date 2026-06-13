@@ -21,7 +21,7 @@ from utils import (
 from model_adapters import get_model_config
 
 
-def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
+def run_mode_1(model, tokenizer, test_dataset, device, batch_size, model_config):
     """Mode 1: Prompt model with Context and Question simultaneously (Batched)."""
     print("\n--- Running Mode 1: Context + Question (Isolated Memory - Batched) ---")
     results = []
@@ -40,7 +40,7 @@ def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
             for c, q in zip(contexts, questions)
         ]
 
-        predictions = generate_batch_responses(model, tokenizer, messages_batch, device)
+        predictions = generate_batch_responses(model, tokenizer, messages_batch, device, max_new_tokens=model_config.get_max_new_tokens())
 
         for idx, truth, question, pred in zip(
             sample_ids, ground_truths, questions, predictions
@@ -70,7 +70,7 @@ def run_mode_1(model, tokenizer, test_dataset, device, batch_size):
     return results, exact_count, fuzzy_count
 
 
-def run_mode_2(model, tokenizer, test_dataset, device):
+def run_mode_2(model, tokenizer, test_dataset, device, model_config):
     """Mode 2: Two-pass continuous context (Working Memory - Sequential)."""
     print("\n--- Running Mode 2: Continuous Context (Working Memory) ---")
     print("  (Running sequentially to maintain unbroken context state without OOM)")
@@ -96,7 +96,7 @@ def run_mode_2(model, tokenizer, test_dataset, device):
         ground_truth = sample.get("answer", "")
 
         messages.append({"role": "user", "content": f"Question: {question}"})
-        predicted = generate_single_response(model, tokenizer, messages, device)
+        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=model_config.get_max_new_tokens())
         messages.append({"role": "assistant", "content": predicted})
 
         exact = exact_match(predicted, ground_truth)
@@ -124,7 +124,7 @@ def run_mode_2(model, tokenizer, test_dataset, device):
     return results, exact_count, fuzzy_count
 
 
-def run_mode_2_1(model, tokenizer, test_dataset, device):
+def run_mode_2_1(model, tokenizer, test_dataset, device, model_config):
     """Mode 2.1: Two-pass continuous context (Working Memory - Sequential) using Base Model."""
     print(
         "\n--- Running Mode 2.1: Continuous Context (Base Model Baseline - No LoRA) ---"
@@ -154,7 +154,7 @@ def run_mode_2_1(model, tokenizer, test_dataset, device):
         ground_truth = sample.get("answer", "")
 
         messages.append({"role": "user", "content": f"Question: {question}"})
-        predicted = generate_single_response(model, tokenizer, messages, device)
+        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=model_config.get_max_new_tokens())
         messages.append({"role": "assistant", "content": predicted})
 
         exact = exact_match(predicted, ground_truth)
@@ -190,11 +190,12 @@ def run_mode_3(
     device,
     test_dataset,
     batch_size,
+    use_thinking,
 ):
     """Mode 3: Parametric Memory Consolidation (Secondary Fine-Tuning - Batched Inference)."""
     print("\n--- Running Mode 3: Parametric Memory (Weights Fine-Tuning) ---")
 
-    model_config = get_model_config(model_id)
+    model_config = get_model_config(model_id, use_thinking=use_thinking)
 
     mode3_train_data = test_dataset.map(model_config.format_mode3_train)
     mode3_adapter_dir = os.path.join(output_dir, "mode3_adapter")
@@ -271,7 +272,7 @@ def run_mode_3(
         ]
 
         predictions = generate_batch_responses(
-            eval_model, tokenizer, messages_batch, device
+            eval_model, tokenizer, messages_batch, device, max_new_tokens=model_config.get_max_new_tokens()
         )
 
         for idx, question, truth, pred in zip(
@@ -318,11 +319,12 @@ def run_mode_4(
     device,
     test_dataset,
     batch_size,
+    use_thinking,
 ):
     """Mode 4: Continued Pre-Training (CPT) on Declarative Statements + QA Stacking."""
     print("\n--- Running Mode 4: Continued Pre-Training (LoRA Stacking) ---")
 
-    model_config = get_model_config(model_id)
+    model_config = get_model_config(model_id, use_thinking=use_thinking)
 
     # 1. Format the dataset for CPT using the declarative statements exclusively
     cpt_train_data = test_dataset.map(model_config.format_cpt_train)
@@ -447,7 +449,7 @@ def run_mode_4(
         ]
 
         predictions = generate_batch_responses(
-            final_eval_model, tokenizer, messages_batch, device
+            final_eval_model, tokenizer, messages_batch, device, max_new_tokens=model_config.get_max_new_tokens()
         )
 
         for idx, question, truth, pred in zip(
@@ -488,7 +490,7 @@ def run_mode_4(
 
 
 def test_model(
-    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16
+    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16, use_thinking=None
 ):
     """Main testing pipeline executing Modes 1, 2, and 3."""
     device = get_device()
@@ -508,21 +510,21 @@ def test_model(
     original_adapter = os.path.join(model_path, "final-adapter")
 
     # Load base model for Modes 1 & 2 (and 2.1)
-    tokenizer, model = load_tokenizer_and_model(original_adapter, model_id, device)
+    tokenizer, model, model_config = load_tokenizer_and_model(original_adapter, model_id, device, use_thinking=use_thinking, return_config=True)
 
     # Execute Mode 1 (Batched)
     results_m1, exact_m1, fuzzy_m1 = run_mode_1(
-        model, tokenizer, test_dataset, device, batch_size
+        model, tokenizer, test_dataset, device, batch_size, model_config
     )
 
     # Execute Mode 2.1 (Sequential - Base Model Only)
     with model.disable_adapter():
         results_m2_1, exact_m2_1, fuzzy_m2_1 = run_mode_2_1(
-            model, tokenizer, test_dataset, device
+            model, tokenizer, test_dataset, device, model_config
         )
 
     # Execute Mode 2 (Sequential - Fine-Tuned LoRA)
-    results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device)
+    results_m2, exact_m2, fuzzy_m2 = run_mode_2(model, tokenizer, test_dataset, device, model_config)
 
     print("  [System] Tearing down Mode 1, 2.1 & 2 computational graph to free VRAM...")
     # ... existing teardown logic ...
@@ -543,6 +545,7 @@ def test_model(
         device,
         test_dataset,
         batch_size,
+        use_thinking=use_thinking,
     )
 
     # Execute Mode 4 (CPT + Stacking)
@@ -554,6 +557,7 @@ def test_model(
         device,
         test_dataset,
         batch_size,
+        use_thinking=use_thinking,
     )
 
     all_results = results_m1 + results_m2_1 + results_m2 + results_m3 + results_m4
@@ -663,7 +667,21 @@ def main():
     parser.add_argument(
         "--batch_size", type=int, default=16, help="Batch size for inference"
     )
+    parser.add_argument(
+        "--use_thinking",
+        action="store_true",
+        default=None,
+        help="Enable thinking mode (if supported by the model)",
+    )
+    parser.add_argument(
+        "--disable_thinking",
+        action="store_true",
+        default=False,
+        help="Explicitly disable thinking mode",
+    )
     args = parser.parse_args()
+
+    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
 
     model_path = os.path.expanduser(args.model_path)
     dataset_path = os.path.expanduser(args.dataset_path)
@@ -675,6 +693,7 @@ def main():
         output_dir,
         model_id=args.model_id,
         batch_size=args.batch_size,
+        use_thinking=use_thinking,
     )
 
 

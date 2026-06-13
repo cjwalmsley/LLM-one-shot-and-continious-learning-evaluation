@@ -17,14 +17,14 @@ from utils import (
 
 
 def evaluate_model(
-    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16
+    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16, use_thinking=None
 ):
     """
     Evaluate the fine-tuned model on the training dataset using batched inference.
     """
     device = get_device()
     adapter_path = os.path.join(model_path, "final-adapter")
-    tokenizer, model = load_tokenizer_and_model(adapter_path, model_id, device)
+    tokenizer, model, model_config = load_tokenizer_and_model(adapter_path, model_id, device, use_thinking=use_thinking, return_config=True)
 
     print("Loading dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
@@ -55,7 +55,7 @@ def evaluate_model(
             for c, q in zip(contexts, questions)
         ]
 
-        predictions = generate_batch_responses(model, tokenizer, messages_batch, device)
+        predictions = generate_batch_responses(model, tokenizer, messages_batch, device, max_new_tokens=model_config.get_max_new_tokens())
 
         # Calculate metrics for the batch
         for idx, context, question, truth, pred in zip(
@@ -169,7 +169,21 @@ def main():
     parser.add_argument(
         "--batch_size", type=int, default=16, help="Batch size for inference"
     )
+    parser.add_argument(
+        "--use_thinking",
+        action="store_true",
+        default=None,
+        help="Enable thinking mode (if supported by the model)",
+    )
+    parser.add_argument(
+        "--disable_thinking",
+        action="store_true",
+        default=False,
+        help="Explicitly disable thinking mode",
+    )
     args = parser.parse_args()
+
+    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
 
     model_path = os.path.expanduser(args.model_path)
     dataset_path = os.path.expanduser(args.dataset_path)
@@ -186,6 +200,7 @@ def main():
         output_dir,
         model_id=args.model_id,
         batch_size=args.batch_size,
+        use_thinking=use_thinking,
     )
 
 

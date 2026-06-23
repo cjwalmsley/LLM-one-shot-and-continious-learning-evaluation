@@ -1,6 +1,10 @@
 import argparse
 import json
 import os
+
+# Set PyTorch CUDA allocation configuration to avoid fragmentation before importing torch
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 import gc
 import torch
 from datetime import datetime

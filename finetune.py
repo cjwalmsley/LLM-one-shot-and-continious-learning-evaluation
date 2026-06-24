@@ -9,6 +9,10 @@ from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
 import argparse
 import os
+
+# Set PyTorch CUDA allocation configuration to avoid fragmentation before importing torch
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 from dotenv import load_dotenv
 from evaluate import evaluate_model
 from test import test_model
@@ -39,7 +43,27 @@ def main():
         default=None,
         help="The name of the experiment that the finetuning dataset is from",
     )
+    parser.add_argument(
+        "--use_thinking",
+        action="store_true",
+        default=None,
+        help="Enable thinking mode (if supported by the model)",
+    )
+    parser.add_argument(
+        "--disable_thinking",
+        action="store_true",
+        default=False,
+        help="Explicitly disable thinking mode",
+    )
+    parser.add_argument(
+        "--inference_batch_size",
+        type=int,
+        default=None,
+        help="Batch size to use for evaluation and testing. If not provided, it is dynamically determined.",
+    )
     args = parser.parse_args()
+
+    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
 
     # Load environment variables from .env file
     if os.path.exists(".env"):
@@ -88,7 +112,7 @@ def main():
         os.makedirs(expanded_output_dir)
         print(f"Created output directory: {expanded_output_dir}")
 
-    model_config = get_model_config(model_id)
+    model_config = get_model_config(model_id, use_thinking=use_thinking)
 
     print(f"Loading tokenizer for {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -189,6 +213,20 @@ def main():
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
+        # Determine a safe inference batch size based on the model's max_new_tokens
+        inference_batch_size = args.inference_batch_size
+        if inference_batch_size is None:
+            max_tokens = model_config.get_max_new_tokens()
+            # If generating massive outputs, lower batch size severely to avoid KV cache OOM
+            if max_tokens > 16000:
+                inference_batch_size = 2
+            elif max_tokens > 4096:
+                inference_batch_size = 4
+            else:
+                inference_batch_size = 16
+
+        print(f"\nUsing inference batch size: {inference_batch_size}")
+
         # Run evaluation natively
         print("\n" + "=" * 60)
         print("Starting model evaluation...")
@@ -201,7 +239,8 @@ def main():
                 dataset_path=expanded_dataset_path,
                 output_dir=eval_output_dir,
                 model_id=model_id,
-                batch_size=16,
+                batch_size=inference_batch_size,
+                use_thinking=use_thinking,
             )
         except Exception as e:
             print(f"Warning: Evaluation failed with error: {e}")
@@ -218,7 +257,8 @@ def main():
                 dataset_path=expanded_dataset_path,
                 output_dir=test_output_dir,
                 model_id=model_id,
-                batch_size=16,
+                batch_size=inference_batch_size,
+                use_thinking=use_thinking,
             )
         except Exception as e:
             print(f"Warning: Testing failed with error: {e}")

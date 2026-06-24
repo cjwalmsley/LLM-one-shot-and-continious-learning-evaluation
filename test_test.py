@@ -23,10 +23,13 @@ class TestRunMode2(unittest.TestCase):
         model = MagicMock()
         tokenizer = MagicMock()
 
+        model_config = MagicMock()
+        model_config.get_max_new_tokens.return_value = 50
+
         with patch("test.generate_single_response") as mock_generate:
             mock_generate.side_effect = ["ok", "ok", "Answer A", "Answer B"]
             results, exact_count, fuzzy_count = test_module.run_mode_2(
-                model, tokenizer, sample_records, "cpu"
+                model, tokenizer, sample_records, "cpu", model_config
             )
 
         self.assertEqual(len(results), 2)
@@ -37,8 +40,8 @@ class TestRunMode2(unittest.TestCase):
 
         self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
         self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
-        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[2].kwargs)
-        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[3].kwargs)
+        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 50)
 
 
 class TestRunMode2_1(unittest.TestCase):
@@ -58,10 +61,13 @@ class TestRunMode2_1(unittest.TestCase):
         model = MagicMock()
         tokenizer = MagicMock()
 
+        model_config = MagicMock()
+        model_config.get_max_new_tokens.return_value = 50
+
         with patch("test.generate_single_response") as mock_generate:
             mock_generate.side_effect = ["ok", "ok", "Answer A", "Answer B"]
             results, exact_count, fuzzy_count = test_module.run_mode_2_1(
-                model, tokenizer, sample_records, "cpu"
+                model, tokenizer, sample_records, "cpu", model_config
             )
 
         self.assertEqual(len(results), 2)
@@ -72,8 +78,8 @@ class TestRunMode2_1(unittest.TestCase):
 
         self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
         self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
-        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[2].kwargs)
-        self.assertNotIn("max_new_tokens", mock_generate.call_args_list[3].kwargs)
+        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 50)
 
 
 class TestRunMode4(unittest.TestCase):
@@ -163,6 +169,7 @@ class TestRunMode4(unittest.TestCase):
             "cpu",
             mapped_dataset,
             batch_size=2,
+            use_thinking=None,
         )
 
         self.assertEqual(len(results), 2)
@@ -175,7 +182,7 @@ class TestRunMode4(unittest.TestCase):
             [{"role": "user", "content": "Question: Question B?"}],
         ]
         mock_generate_batch.assert_called_once_with(
-            mock_peft_model, mock_tokenizer, expected_messages, "cpu"
+            mock_peft_model, mock_tokenizer, expected_messages, "cpu", max_new_tokens=50
         )
 
 
@@ -218,7 +225,8 @@ class TestTestModel(unittest.TestCase):
         mock_run_mode_4,
     ):
         mock_model = MagicMock()
-        mock_load_model.return_value = (MagicMock(), mock_model)
+        mock_model_config = MagicMock()
+        mock_load_model.return_value = (MagicMock(), mock_model, mock_model_config)
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
         mock_dataset.__getitem__.return_value = mock_dataset_train

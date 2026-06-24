@@ -21,7 +21,9 @@ class TestEvaluateModel(unittest.TestCase):
         mock_tokenizer = MagicMock()
         mock_tokenizer.eos_token_id = 2
         mock_model = MagicMock()
-        mock_load_tokenizer_and_model.return_value = (mock_tokenizer, mock_model)
+        mock_model_config = MagicMock()
+        mock_model_config.get_max_new_tokens.return_value = 50
+        mock_load_tokenizer_and_model.return_value = (mock_tokenizer, mock_model, mock_model_config)
         # Mock dataset
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
@@ -60,7 +62,9 @@ class TestEvaluateModel(unittest.TestCase):
         # Setup mocks
         mock_tokenizer = MagicMock()
         mock_model = MagicMock()
-        mock_load_tokenizer_and_model.return_value = (mock_tokenizer, mock_model)
+        mock_model_config = MagicMock()
+        mock_model_config.get_max_new_tokens.return_value = 50
+        mock_load_tokenizer_and_model.return_value = (mock_tokenizer, mock_model, mock_model_config)
         # Mock dataset
         sample_records = [
             {

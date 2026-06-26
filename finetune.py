@@ -9,6 +9,7 @@ from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
 import argparse
 import os
+from pathlib import Path
 
 # Set PyTorch CUDA allocation configuration to avoid fragmentation before importing torch
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -63,7 +64,9 @@ def main():
     )
     args = parser.parse_args()
 
-    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
+    use_thinking = (
+        False if args.disable_thinking else (True if args.use_thinking else None)
+    )
 
     # Load environment variables from .env file
     if os.path.exists(".env"):
@@ -98,8 +101,8 @@ def main():
     else:
         dataset_path = "sample_dataset.jsonl"
         output_dir = f"./{safe_dir_name}"
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    output_dir = f"{output_dir}/{timestamp}"
+
+    output_dir = f"{output_dir}/{Path(dataset_path).stem}"
 
     # check if the dataset_path exists
     expanded_dataset_path = os.path.expanduser(dataset_path)

@@ -100,7 +100,10 @@ class TestFinetune(unittest.TestCase):
         mock_auto_tokenizer.from_pretrained.assert_called_with("custom-model-id")
         self.assertEqual(mock_tokenizer_instance.pad_token, "<eos>")
         mock_auto_model.from_pretrained.assert_called_with(
-            "custom-model-id", device_map="auto"
+            "custom-model-id",
+            device_map="auto",
+            quantization_config=unittest.mock.ANY,
+            attn_implementation="flash_attention_2"
         )
         mock_load_dataset.assert_called_with("json", data_files="custom_dataset.jsonl")
 

@@ -1,6 +1,6 @@
 import os
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
 from rapidfuzz import fuzz
 from model_adapters import get_model_config
@@ -32,10 +32,23 @@ def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False,
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
     tokenizer = model_config.setup_tokenizer(tokenizer)
 
+    quantization_config = None
+    attn_implementation = None
+    if device != "cpu":
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+        attn_implementation = "flash_attention_2"
+
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map=("cpu" if device == "cpu" else {"": device}),  # Strict GPU mapping
         torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        quantization_config=quantization_config,
+        attn_implementation=attn_implementation,
     )
 
     model = PeftModel.from_pretrained(

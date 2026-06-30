@@ -78,8 +78,8 @@ class TestFinetune(unittest.TestCase):
         # Arrange
         mock_torch.cuda.is_available.return_value = True
         mock_torch.cuda.is_bf16_supported.return_value = True
-        mock_torch.bfloat16 = "torch.bfloat16"
-        mock_torch.float16 = "torch.float16"
+        mock_torch.bfloat16 = "bfloat16"
+        mock_torch.float16 = "float16"
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()
         mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer_instance

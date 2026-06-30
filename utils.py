@@ -41,7 +41,7 @@ def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
-        attn_implementation = "flash_attention_2"
+        attn_implementation = "sdpa"
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,

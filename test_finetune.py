@@ -106,7 +106,7 @@ class TestFinetune(unittest.TestCase):
             "custom-model-id",
             device_map="auto",
             quantization_config=unittest.mock.ANY,
-            attn_implementation="flash_attention_2"
+            attn_implementation="sdpa"
         )
         mock_load_dataset.assert_called_with("json", data_files="custom_dataset.jsonl")
 

@@ -350,7 +350,7 @@ def run_mode_4(
             bnb_4bit_quant_type="nf4",
         )
         if torch.cuda.is_available():
-            attn_implementation = "flash_attention_2"
+            attn_implementation = "sdpa"
 
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,

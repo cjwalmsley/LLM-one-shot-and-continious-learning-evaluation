@@ -132,9 +132,9 @@ def main():
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
-        # Note: flash attention may not be supported on MPS, safely enable for CUDA
+        # Note: SDPA is highly optimized and avoids Flash Attention 2 head dimension limits (max 256)
         if torch.cuda.is_available():
-            attn_implementation = "flash_attention_2"
+            attn_implementation = "sdpa"
 
     model = AutoModelForCausalLM.from_pretrained(
         model_id,

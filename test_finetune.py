@@ -77,6 +77,9 @@ class TestFinetune(unittest.TestCase):
     ):
         # Arrange
         mock_torch.cuda.is_available.return_value = True
+        mock_torch.cuda.is_bf16_supported.return_value = True
+        mock_torch.bfloat16 = "bfloat16"
+        mock_torch.float16 = "float16"
         mock_path_exists.return_value = True
         mock_tokenizer_instance = MagicMock()
         mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
@@ -100,7 +103,10 @@ class TestFinetune(unittest.TestCase):
         mock_auto_tokenizer.from_pretrained.assert_called_with("custom-model-id")
         self.assertEqual(mock_tokenizer_instance.pad_token, "<eos>")
         mock_auto_model.from_pretrained.assert_called_with(
-            "custom-model-id", device_map="auto"
+            "custom-model-id",
+            device_map="auto",
+            quantization_config=unittest.mock.ANY,
+            attn_implementation="sdpa"
         )
         mock_load_dataset.assert_called_with("json", data_files="custom_dataset.jsonl")
 

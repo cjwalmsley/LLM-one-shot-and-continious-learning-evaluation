@@ -57,6 +57,8 @@ class TestLoadTokenizerAndModel(unittest.TestCase):
             "base-id",
             device_map="cpu",
             torch_dtype=torch.float32,
+            quantization_config=None,
+            attn_implementation=None
         )
         mock_peft.eval.assert_called_once_with()
 

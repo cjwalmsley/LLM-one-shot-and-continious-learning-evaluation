@@ -4,6 +4,7 @@ from datasets import load_dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
+    BitsAndBytesConfig,
 )
 from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
@@ -122,7 +123,25 @@ def main():
     tokenizer = model_config.setup_tokenizer(tokenizer)
 
     print("Loading model...")
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
+    quantization_config = None
+    attn_implementation = None
+    if torch.cuda.is_available() or torch.backends.mps.is_available():
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+        # Note: SDPA is highly optimized and avoids Flash Attention 2 head dimension limits (max 256)
+        if torch.cuda.is_available():
+            attn_implementation = "sdpa"
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        device_map="auto",
+        quantization_config=quantization_config,
+        attn_implementation=attn_implementation,
+    )
 
     print("Configuring LoRA...")
     peft_config = LoraConfig(

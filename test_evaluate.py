@@ -85,17 +85,78 @@ class TestEvaluateModel(unittest.TestCase):
         mock_dataset = MagicMock()
         mock_dataset_train = MagicMock()
         mock_dataset.__getitem__ = MagicMock(return_value=mock_dataset_train)
+        mock_dataset_train.filter.return_value = sample_records
         mock_load_dataset.return_value = mock_dataset
-        filtered_dataset = MagicMock()
-        filtered_dataset.__len__ = MagicMock(return_value=2)
-        filtered_dataset.__iter__ = MagicMock(return_value=iter(sample_records))
-        mock_dataset_train.filter.return_value = filtered_dataset
+
+        # Helper to simulate dataset indexing and `.get()`
+        class DictMockDataset(list):
+            def __getitem__(self, val):
+                if isinstance(val, slice):
+                    # returning a dictionary with `.get()` for batches
+                    sublist = super().__getitem__(val)
+                    return {
+                        "declarative_statement": [item["declarative_statement"] for item in sublist],
+                        "question": [item["question"] for item in sublist],
+                        "answer": [item["answer"] for item in sublist],
+                    }
+                return super().__getitem__(val)
+
+        dataset_wrapper = DictMockDataset(sample_records)
+        mock_dataset_train.filter.return_value = dataset_wrapper
+
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("evaluate.generate_batch_responses") as mock_gen:
                 mock_gen.return_value = ["Answer A", "Answer B"]
+                # Default eval_mode is 'both', so it should output both base_model and finetuned_model stats
                 summary = evaluate_model(tmpdir, "test.jsonl", tmpdir)
             self.assertIn("total_samples", summary)
             self.assertEqual(summary["total_samples"], 2)
+            self.assertIn("base_model", summary)
+            self.assertIn("finetuned_model", summary)
+            self.assertEqual(summary["base_model"]["exact_match"]["count"], 2)
+            self.assertEqual(summary["finetuned_model"]["exact_match"]["count"], 2)
+            self.assertTrue(mock_model.disable_adapter.called)
+
+    @patch("evaluate.load_tokenizer_and_model")
+    @patch("evaluate.load_dataset")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_evaluate_model_eval_mode(
+        self, mock_file, mock_load_dataset, mock_load_tokenizer_and_model
+    ):
+        """Test that eval_mode argument is respected."""
+        mock_tokenizer = MagicMock()
+        mock_model = MagicMock()
+        mock_model_config = MagicMock()
+        mock_model_config.get_max_new_tokens.return_value = 50
+        mock_load_tokenizer_and_model.return_value = (mock_tokenizer, mock_model, mock_model_config)
+        mock_dataset = MagicMock()
+        mock_dataset_train = MagicMock()
+        mock_dataset.__getitem__ = MagicMock(return_value=mock_dataset_train)
+
+        class EmptyDataset(list):
+            def __getitem__(self, val):
+                if isinstance(val, slice):
+                    return {"declarative_statement": [], "question": [], "answer": []}
+                return super().__getitem__(val)
+
+        mock_dataset_train.filter.return_value = EmptyDataset([])
+        mock_load_dataset.return_value = mock_dataset
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("evaluate.generate_batch_responses", return_value=[]):
+                # eval_mode = base
+                mock_model.disable_adapter.reset_mock()
+                summary_base = evaluate_model(tmpdir, "test.jsonl", tmpdir, eval_mode="base")
+                self.assertIn("base_model", summary_base)
+                self.assertNotIn("finetuned_model", summary_base)
+                self.assertTrue(mock_model.disable_adapter.called)
+
+                # eval_mode = finetuned
+                mock_model.disable_adapter.reset_mock()
+                summary_ft = evaluate_model(tmpdir, "test.jsonl", tmpdir, eval_mode="finetuned")
+                self.assertNotIn("base_model", summary_ft)
+                self.assertIn("finetuned_model", summary_ft)
+                self.assertFalse(mock_model.disable_adapter.called)
 
 
 class TestEvaluationIntegration(unittest.TestCase):

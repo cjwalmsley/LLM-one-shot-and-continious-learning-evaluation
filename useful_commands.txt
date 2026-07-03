@@ -22,9 +22,19 @@ sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/L
 
 rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/google/gemma-4-31B ~/"gdrive/PhD/work/annabell/experiments/95/llm_comparison/finetune/google"
 
-
 sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
 
 ~/PycharmProjects/Training-and-evaluating-cognitive-language-models/shell_scripts/generate_database_folds.sh sample_dataset.jsonl 3
 
 sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh LiquidAI/LFM2.5-8B-A1B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
+
+mkdir -p ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/ ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"
+
+deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl 101
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl 101
+
+deepseek-ai/DeepSeek-R1-Distill-Qwen-32B

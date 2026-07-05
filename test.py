@@ -100,7 +100,8 @@ def run_mode_2(model, tokenizer, test_dataset, device, model_config):
         ground_truth = sample.get("answer", "")
 
         messages.append({"role": "user", "content": f"Question: {question}"})
-        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=model_config.get_max_new_tokens())
+        # Limit max_new_tokens to prevent chain-of-thought bloat from causing OOM in continuous context
+        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=150)
         messages.append({"role": "assistant", "content": predicted})
 
         exact = exact_match(predicted, ground_truth)
@@ -158,7 +159,8 @@ def run_mode_2_1(model, tokenizer, test_dataset, device, model_config):
         ground_truth = sample.get("answer", "")
 
         messages.append({"role": "user", "content": f"Question: {question}"})
-        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=model_config.get_max_new_tokens())
+        # Limit max_new_tokens to prevent chain-of-thought bloat from causing OOM in continuous context
+        predicted = generate_single_response(model, tokenizer, messages, device, max_new_tokens=150)
         messages.append({"role": "assistant", "content": predicted})
 
         exact = exact_match(predicted, ground_truth)

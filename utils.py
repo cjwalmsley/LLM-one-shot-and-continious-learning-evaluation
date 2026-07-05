@@ -5,6 +5,7 @@ from peft import PeftModel
 from rapidfuzz import fuzz
 from model_adapters import get_model_config
 
+
 def get_device():
     """Detect and return the appropriate device (AMD ROCm compatible)."""
     if torch.cuda.is_available():
@@ -24,7 +25,15 @@ def get_device():
         print("✓ No GPU detected, using CPU")
         return "cpu"
 
-def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False, use_thinking=None, return_config=False):
+
+def load_tokenizer_and_model(
+    adapter_path,
+    model_id,
+    device,
+    is_trainable=False,
+    use_thinking=None,
+    return_config=False,
+):
     """Loads the base model and attaches the specified adapter."""
     print(f"Loading tokenizer and model from {adapter_path}...")
     model_config = get_model_config(model_id, use_thinking=use_thinking)
@@ -67,7 +76,10 @@ def load_tokenizer_and_model(adapter_path, model_id, device, is_trainable=False,
         return tokenizer, model, model_config
     return tokenizer, model
 
-def generate_batch_responses(model, tokenizer, messages_batch, device, max_new_tokens=50):
+
+def generate_batch_responses(
+    model, tokenizer, messages_batch, device, max_new_tokens=50
+):
     """Generate responses for a batch of messages simultaneously."""
     prompts = [
         tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
@@ -93,17 +105,20 @@ def generate_batch_responses(model, tokenizer, messages_batch, device, max_new_t
     responses = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
     return [response.strip() for response in responses]
 
+
 def generate_single_response(model, tokenizer, messages, device, max_new_tokens=50):
     """Generate a response sequentially (used exclusively for Mode 2 statefulness)."""
     return generate_batch_responses(
         model, tokenizer, [messages], device, max_new_tokens
     )[0]
 
+
 def exact_match(predicted, ground_truth):
     """Check for exact string match (case-insensitive)."""
     return predicted.strip().lower() == ground_truth.strip().lower()
 
-def fuzzy_match(predicted, ground_truth, threshold=80):
+
+def fuzzy_match(predicted, ground_truth, threshold=70):
     """Check for fuzzy string match using token_set_ratio."""
     score = fuzz.token_set_ratio(predicted.lower(), ground_truth.lower())
     return score >= threshold

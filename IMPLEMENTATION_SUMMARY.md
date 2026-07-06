@@ -6,7 +6,7 @@ A complete post-training evaluation system that automatically evaluates the fine
 Comprehensive evaluation script with:
 - **`generate_response()`**: Generates model responses using specified generation parameters (temperature=1.0, top_p=0.95, top_k=64)
 - **`exact_match()`**: Case-insensitive string matching for exact answer comparison
-- **`fuzzy_match()`**: Token-based fuzzy matching using rapidfuzz (80% threshold)
+- **`fuzzy_match()`**: Token-based fuzzy matching using rapidfuzz (70% threshold)
 - **`evaluate_model()`**: Main evaluation logic that:
   - Loads the trained model and LoRA adapter
   - Filters dataset to `is_pretraining=True` samples
@@ -50,7 +50,7 @@ Generate responses for training samples
     ↓
 Compare using:
    • Exact Match (case-insensitive)
-   • Fuzzy Match (token_set_ratio ≥ 80%)
+   • Fuzzy Match (token_set_ratio ≥ 70%)
     ↓
 Generate Reports:
    • evaluation_results.jsonl (per-sample)

@@ -40,8 +40,8 @@ class TestRunMode2(unittest.TestCase):
 
         self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
         self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
-        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 50)
-        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 150)
+        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 150)
 
 
 class TestRunMode2_1(unittest.TestCase):
@@ -78,8 +78,8 @@ class TestRunMode2_1(unittest.TestCase):
 
         self.assertEqual(mock_generate.call_args_list[0].kwargs["max_new_tokens"], 50)
         self.assertEqual(mock_generate.call_args_list[1].kwargs["max_new_tokens"], 50)
-        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 50)
-        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 50)
+        self.assertEqual(mock_generate.call_args_list[2].kwargs["max_new_tokens"], 150)
+        self.assertEqual(mock_generate.call_args_list[3].kwargs["max_new_tokens"], 150)
 
 
 class TestRunMode4(unittest.TestCase):

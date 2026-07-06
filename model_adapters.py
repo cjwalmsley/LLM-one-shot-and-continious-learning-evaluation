@@ -50,13 +50,13 @@ class GemmaModelConfig(ModelConfig):
 
     def get_lora_target_modules(self) -> List[str]:
         return [
-            "q_proj.linear",
-            "k_proj.linear",
-            "v_proj.linear",
-            "o_proj.linear",
-            "gate_proj.linear",
-            "up_proj.linear",
-            "down_proj.linear",
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
         ]
 
     def setup_tokenizer(self, tokenizer: Any) -> Any:

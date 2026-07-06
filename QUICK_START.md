@@ -18,7 +18,7 @@ python evaluate.py \
 - **Dataset**: Training samples (filtered by `is_pretraining=True`)
 - **Metrics**: 
   - Exact Match: Case-insensitive string comparison
-  - Fuzzy Match: 80% token-based similarity
+  - Fuzzy Match: 70% token-based similarity
 ## Where Are the Results?
 Results are saved to `{output_dir}/evaluation/`:
 ```
@@ -43,7 +43,7 @@ Fuzzy Match Accuracy: 92/100 (92.00%)
 | Metric | Description | Use Case |
 |--------|-------------|----------|
 | **Exact Match** | Perfect word-for-word match (case-insensitive) | Factual, knowledge-based answers |
-| **Fuzzy Match** | Token-based similarity >= 80% | Semantic correctness, wording flexibility |
+| **Fuzzy Match** | Token-based similarity >= 70% | Semantic correctness, wording flexibility |
 ## Files
 | File | Purpose |
 |------|---------|

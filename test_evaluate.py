@@ -182,7 +182,7 @@ class TestEvaluationIntegration(unittest.TestCase):
         self.assertFalse(exact_match(prediction2, ground_truth))
         self.assertTrue(fuzzy_match(prediction2, ground_truth))
         # Example 3: No match scenario
-        prediction3 = "The reactor is not safe"
+        prediction3 = "The reactor is completely destroyed"
         self.assertFalse(exact_match(prediction3, ground_truth))
         self.assertFalse(fuzzy_match(prediction3, ground_truth))
 

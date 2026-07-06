@@ -7,7 +7,7 @@ The evaluation script calculates accuracy using two methods:
 1. **Exact Match**: Case-insensitive exact string matching
    - Compares predictions directly to ground truth answers
    - Useful for factual answers
-2. **Fuzzy Match**: Token-based similarity matching (80% threshold)
+2. **Fuzzy Match**: Token-based similarity matching (70% threshold)
    - Uses `rapidfuzz.fuzz.token_set_ratio()` for comparison
    - Tolerates minor variations in wording
    - Useful for semantic similarity

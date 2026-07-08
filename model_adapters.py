@@ -49,14 +49,14 @@ class GemmaModelConfig(ModelConfig):
         super().__init__(use_thinking=False) # Thinking mode not supported
 
     def get_lora_target_modules(self) -> List[str]:
+        # Target the text tower layers explicitly. Gemma 4 text layers are usually named
+        # `model.layers.X...` but vision layers are `model.vision_tower...`.
+        # The text layers use standard Linear (or 4bit Linear) which PEFT supports as q_proj,
+        # but vision layers use `Gemma4ClippableLinear` requiring the `.linear` suffix.
+        # By targeting the text layers with regex and standard projection names, we avoid the error.
         return [
-            "q_proj.linear",
-            "k_proj.linear",
-            "v_proj.linear",
-            "o_proj.linear",
-            "gate_proj.linear",
-            "up_proj.linear",
-            "down_proj.linear",
+            ".*model\\.layers\\.\\d+\\.self_attn\\.(?:q_proj|k_proj|v_proj|o_proj)",
+            ".*model\\.layers\\.\\d+\\.mlp\\.(?:gate_proj|up_proj|down_proj)",
         ]
 
     def setup_tokenizer(self, tokenizer: Any) -> Any:

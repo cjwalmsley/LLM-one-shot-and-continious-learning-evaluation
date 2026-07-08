@@ -96,6 +96,12 @@ class TestFinetune(unittest.TestCase):
         mock_trainer_instance = MagicMock()
         mock_sft_trainer.return_value = mock_trainer_instance
 
+        # Mock named_parameters to prevent ZeroDivisionError in verify_lora_injection
+        mock_param = MagicMock()
+        mock_param.numel.return_value = 100
+        mock_param.requires_grad = True
+        mock_trainer_instance.model.named_parameters.return_value = [("mock_layer", mock_param)]
+
         # Act
         main()
 

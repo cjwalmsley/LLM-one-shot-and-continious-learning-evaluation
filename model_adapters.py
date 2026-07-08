@@ -105,11 +105,53 @@ class QwenModelConfig(ModelConfig):
             "down_proj",
         ]
 
+
+class LlamaModelConfig(ModelConfig):
+    """Configuration for Llama models."""
+    def __init__(self, use_thinking: Optional[bool] = None):
+        super().__init__(use_thinking=use_thinking if use_thinking is not None else False)
+
+    def get_max_new_tokens(self) -> int:
+        return 1024
+
+    def get_lora_target_modules(self) -> List[str]:
+        return [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+
+    def setup_tokenizer(self, tokenizer: Any) -> Any:
+        tokenizer = super().setup_tokenizer(tokenizer)
+        if getattr(tokenizer, 'chat_template', None) is None:
+            # Standard Llama 3 Instruct chat template
+            tokenizer.chat_template = (
+                "{% set loop_messages = messages %}"
+                "{% for message in loop_messages %}"
+                "{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}"
+                "{% if loop.index0 == 0 %}"
+                "{% set content = bos_token + content %}"
+                "{% endif %}"
+                "{{ content }}"
+                "{% endfor %}"
+                "{% if add_generation_prompt %}"
+                "{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}"
+                "{% endif %}"
+            )
+        return tokenizer
+
+
 def get_model_config(model_id: str, use_thinking: Optional[bool] = None) -> ModelConfig:
     """Factory function to get the appropriate model configuration."""
     model_id_lower = model_id.lower()
     if "gemma" in model_id_lower:
         return GemmaModelConfig(use_thinking=use_thinking)
+    elif "meta-llama/llama-3.1-8b" in model_id_lower:
+        return LlamaModelConfig(use_thinking=use_thinking)
     elif "qwq" in model_id_lower or "qwen" in model_id_lower:
         # Check Qwen first because DeepSeek R1 Distill Qwen will match both "deepseek" and "qwen"
         # Since it is a Qwen architecture underneath, QwenModelConfig is appropriate for its chat template

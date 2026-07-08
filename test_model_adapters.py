@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock
-from model_adapters import get_model_config, GemmaModelConfig, DeepSeekModelConfig, QwenModelConfig
+from model_adapters import get_model_config, GemmaModelConfig, DeepSeekModelConfig, QwenModelConfig, LlamaModelConfig
 
 class TestModelAdapters(unittest.TestCase):
     def test_get_gemma_config(self):
@@ -29,6 +29,24 @@ class TestModelAdapters(unittest.TestCase):
         config_no_think = get_model_config("Qwen/QwQ-32B", use_thinking=False)
         self.assertFalse(config_no_think.use_thinking)
         self.assertEqual(config_no_think.get_max_new_tokens(), 1024)
+
+    def test_get_llama_config(self):
+        config = get_model_config("meta-llama/Llama-3.1-8B")
+        self.assertIsInstance(config, LlamaModelConfig)
+        self.assertFalse(config.use_thinking)
+        self.assertEqual(config.get_max_new_tokens(), 1024)
+
+        # Test target modules exist
+        self.assertIn("q_proj", config.get_lora_target_modules())
+
+        # Test tokenizer setup sets default chat template
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.chat_template = None
+        mock_tokenizer.pad_token = None
+        mock_tokenizer.eos_token = "<|eot_id|>"
+        config.setup_tokenizer(mock_tokenizer)
+        self.assertIsNotNone(mock_tokenizer.chat_template)
+        self.assertIn("<|start_header_id|>", mock_tokenizer.chat_template)
 
 if __name__ == "__main__":
     unittest.main()

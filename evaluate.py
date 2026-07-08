@@ -20,10 +20,14 @@ from utils import (
 )
 
 
-def run_evaluation_loop(model, tokenizer, dataset, device, batch_size, model_config, mode_name):
+def run_evaluation_loop(
+    model, tokenizer, dataset, device, batch_size, model_config, mode_name
+):
     """Helper to run the evaluation loop for a given model state."""
     total_samples = len(dataset)
-    print(f"\n--- Evaluating {mode_name} model on {total_samples} training samples (batch size {batch_size}) ---")
+    print(
+        f"\n--- Evaluating {mode_name} model on {total_samples} training samples (batch size {batch_size}) ---"
+    )
 
     results = []
     exact_match_count = 0
@@ -39,11 +43,16 @@ def run_evaluation_loop(model, tokenizer, dataset, device, batch_size, model_con
         sample_ids = range(i, i + len(contexts))
 
         messages_batch = [
-            [{"role": "user", "content": f"Context: {c}\n\nQuestion: {q}"}]
-            for c, q in zip(contexts, questions)
+            [{"role": "user", "content": f"Question: {q}"}] for q in questions
         ]
 
-        predictions = generate_batch_responses(model, tokenizer, messages_batch, device, max_new_tokens=model_config.get_max_new_tokens())
+        predictions = generate_batch_responses(
+            model,
+            tokenizer,
+            messages_batch,
+            device,
+            max_new_tokens=model_config.get_max_new_tokens(),
+        )
 
         # Calculate metrics for the batch
         for idx, context, question, truth, pred in zip(
@@ -83,8 +92,15 @@ def run_evaluation_loop(model, tokenizer, dataset, device, batch_size, model_con
 
     return results, exact_match_count, fuzzy_match_count, exact_accuracy, fuzzy_accuracy
 
+
 def evaluate_model(
-    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16, use_thinking=None, eval_mode="both"
+    model_path,
+    dataset_path,
+    output_dir,
+    model_id="google/gemma-4-E2B",
+    batch_size=16,
+    use_thinking=None,
+    eval_mode="both",
 ):
     """
     Evaluate the model on the training dataset using batched inference.
@@ -92,7 +108,9 @@ def evaluate_model(
     """
     device = get_device()
     adapter_path = os.path.join(model_path, "final-adapter")
-    tokenizer, model, model_config = load_tokenizer_and_model(adapter_path, model_id, device, use_thinking=use_thinking, return_config=True)
+    tokenizer, model, model_config = load_tokenizer_and_model(
+        adapter_path, model_id, device, use_thinking=use_thinking, return_config=True
+    )
 
     print("Loading dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
@@ -114,8 +132,16 @@ def evaluate_model(
 
     if eval_mode in ["base", "both"]:
         with model.disable_adapter():
-            base_results, base_exact, base_fuzzy, base_exact_acc, base_fuzzy_acc = run_evaluation_loop(
-                model, tokenizer, train_dataset, device, batch_size, model_config, "base"
+            base_results, base_exact, base_fuzzy, base_exact_acc, base_fuzzy_acc = (
+                run_evaluation_loop(
+                    model,
+                    tokenizer,
+                    train_dataset,
+                    device,
+                    batch_size,
+                    model_config,
+                    "base",
+                )
             )
             all_results.extend(base_results)
             summary["base_model"] = {
@@ -130,8 +156,16 @@ def evaluate_model(
             }
 
     if eval_mode in ["finetuned", "both"]:
-        finetuned_results, ft_exact, ft_fuzzy, ft_exact_acc, ft_fuzzy_acc = run_evaluation_loop(
-            model, tokenizer, train_dataset, device, batch_size, model_config, "finetuned"
+        finetuned_results, ft_exact, ft_fuzzy, ft_exact_acc, ft_fuzzy_acc = (
+            run_evaluation_loop(
+                model,
+                tokenizer,
+                train_dataset,
+                device,
+                batch_size,
+                model_config,
+                "finetuned",
+            )
         )
         all_results.extend(finetuned_results)
         summary["finetuned_model"] = {
@@ -165,8 +199,12 @@ def evaluate_model(
 
     if eval_mode in ["base", "both"]:
         print("\n[Base Model]")
-        print(f"Exact Match Accuracy: {base_exact}/{total_samples} ({base_exact_acc:.2f}%)")
-        print(f"Fuzzy Match Accuracy: {base_fuzzy}/{total_samples} ({base_fuzzy_acc:.2f}%)")
+        print(
+            f"Exact Match Accuracy: {base_exact}/{total_samples} ({base_exact_acc:.2f}%)"
+        )
+        print(
+            f"Fuzzy Match Accuracy: {base_fuzzy}/{total_samples} ({base_fuzzy_acc:.2f}%)"
+        )
 
     if eval_mode in ["finetuned", "both"]:
         print("\n[Fine-Tuned Model]")
@@ -230,7 +268,9 @@ def main():
     )
     args = parser.parse_args()
 
-    use_thinking = False if args.disable_thinking else (True if args.use_thinking else None)
+    use_thinking = (
+        False if args.disable_thinking else (True if args.use_thinking else None)
+    )
 
     model_path = os.path.expanduser(args.model_path)
     dataset_path = os.path.expanduser(args.dataset_path)

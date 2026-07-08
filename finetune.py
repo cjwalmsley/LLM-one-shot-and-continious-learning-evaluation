@@ -22,6 +22,46 @@ from model_adapters import get_model_config
 import datetime
 
 
+def verify_lora_injection(model):
+    """
+    Validates that LoRA adapters are successfully attached and active.
+    Prints parameter counts and a sample of trainable layer names.
+    """
+    print("\n" + "=" * 50)
+    print("🔬 LORA INJECTION SANITY CHECK")
+    print("=" * 50)
+
+    trainable_params = 0
+    all_param = 0
+    trainable_layers = []
+
+    for name, param in model.named_parameters():
+        num_params = param.numel()
+        all_param += num_params
+        if param.requires_grad:
+            trainable_params += num_params
+            trainable_layers.append(name)
+
+    print(f"Total Parameters:      {all_param:,}")
+    print(f"Trainable Parameters:  {trainable_params:,}")
+    print(f"Trainable Percentage:  {100 * trainable_params / all_param:.4f}%\n")
+
+    print("Trainable Layers Found:")
+    if not trainable_layers:
+        print("  ❌ FATAL: NO TRAINABLE LAYERS DETECTED. The model will not learn.")
+        raise RuntimeError(
+            "No trainable layers detected in the model. LoRA injection may have failed."
+        )
+
+    else:
+        # Print the first few layers to visually confirm the naming convention
+        for layer in trainable_layers[:6]:
+            print(f"  ✓ {layer}")
+        if len(trainable_layers) > 6:
+            print(f"  ... and {len(trainable_layers) - 6} more active LoRA layers.")
+    print("=" * 50 + "\n")
+
+
 def main():
 
     #   python finetune_gemma4.py --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl"
@@ -128,7 +168,11 @@ def main():
     if torch.cuda.is_available() or torch.backends.mps.is_available():
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16,
+            bnb_4bit_compute_dtype=(
+                torch.bfloat16
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                else torch.float16
+            ),
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
@@ -216,6 +260,9 @@ def main():
         processing_class=tokenizer,
         args=training_args,
     )
+
+    # Execute the sanity check on the trainer's newly wrapped model
+    verify_lora_injection(trainer.model)
 
     print("Starting training...")
     trainer.train()

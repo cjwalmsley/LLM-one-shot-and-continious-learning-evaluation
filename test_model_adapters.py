@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock
-from model_adapters import get_model_config, GemmaModelConfig, DeepSeekModelConfig, QwenModelConfig, LlamaModelConfig
+from model_adapters import get_model_config, GemmaModelConfig, DeepSeekModelConfig, QwenModelConfig, LlamaModelConfig, LFMModelConfig
 
 class TestModelAdapters(unittest.TestCase):
     def test_get_gemma_config(self):
@@ -47,6 +47,16 @@ class TestModelAdapters(unittest.TestCase):
         config.setup_tokenizer(mock_tokenizer)
         self.assertIsNotNone(mock_tokenizer.chat_template)
         self.assertIn("<|start_header_id|>", mock_tokenizer.chat_template)
+
+    def test_get_lfm_config(self):
+        config = get_model_config("LiquidAI/LFM2-24B-A2B")
+        self.assertIsInstance(config, LFMModelConfig)
+        self.assertFalse(config.use_thinking)
+        self.assertEqual(config.get_max_new_tokens(), 1024)
+        target_modules = config.get_lora_target_modules()
+        self.assertIn("q_proj", target_modules)
+        self.assertIn("in_proj", target_modules)
+        self.assertIn("w1", target_modules)
 
 if __name__ == "__main__":
     unittest.main()

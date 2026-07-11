@@ -23,7 +23,7 @@ class TestModelAdapters(unittest.TestCase):
         config = get_model_config("Qwen/QwQ-32B")
         self.assertIsInstance(config, QwenModelConfig)
         self.assertTrue(config.use_thinking)
-        self.assertEqual(config.get_max_new_tokens(), 32768)
+        self.assertEqual(config.get_max_new_tokens(), 8192)
 
         # Test overriding use_thinking
         config_no_think = get_model_config("Qwen/QwQ-32B", use_thinking=False)

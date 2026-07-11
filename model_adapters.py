@@ -92,7 +92,7 @@ class QwenModelConfig(ModelConfig):
         super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
 
     def get_max_new_tokens(self) -> int:
-        return 32768 if self.use_thinking else 1024
+        return 8192 if self.use_thinking else 1024
 
     def get_lora_target_modules(self) -> List[str]:
         return [

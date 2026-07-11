@@ -54,3 +54,5 @@ sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh Qwen/QwQ-32B ~/LLM-one
 Qwen/QwQ-32B
 
 
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/104/llm_comparison/finetune/deepseek-ai/"
+

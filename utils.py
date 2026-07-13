@@ -62,7 +62,7 @@ def load_tokenizer_and_model(
     print(f"Loading base model weights for {model_id}...")
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        device_map=("cpu" if device == "cpu" else {"": device}),  # Strict GPU mapping
+        device_map=("cpu" if device == "cpu" else "auto"),
         torch_dtype=target_dtype,
         quantization_config=quantization_config,
         attn_implementation=attn_implementation,

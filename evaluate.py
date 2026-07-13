@@ -26,7 +26,7 @@ def run_evaluation_loop(
     """Helper to run the evaluation loop for a given model state."""
     total_samples = len(dataset)
     print(
-        f"\n--- Evaluating {mode_name} model on {total_samples} training samples (batch size {batch_size}) ---"
+        f"\n--- Evaluating {mode_name} model on {total_samples} training samples (batch size {batch_size}) ---", flush=True
     )
 
     results = []
@@ -46,6 +46,7 @@ def run_evaluation_loop(
             [{"role": "user", "content": f"Question: {q}"}] for q in questions
         ]
 
+        print(f"  Generating responses for batch {i//batch_size + 1}...", flush=True)
         predictions = generate_batch_responses(
             model,
             tokenizer,
@@ -80,7 +81,7 @@ def run_evaluation_loop(
             )
 
         print(
-            f"  Evaluated {min(i + batch_size, total_samples)}/{total_samples} samples"
+            f"  Evaluated {min(i + batch_size, total_samples)}/{total_samples} samples", flush=True
         )
 
     exact_accuracy = (
@@ -121,6 +122,7 @@ def evaluate_model(
     train_dataset = dataset["train"].filter(
         lambda x: x.get("is_pretraining", False) == True
     )
+    print("Dataset loaded and filtered successfully.", flush=True)
 
     total_samples = len(train_dataset)
 

@@ -35,11 +35,13 @@ def load_tokenizer_and_model(
     return_config=False,
 ):
     """Loads the base model and attaches the specified adapter."""
-    print(f"Loading tokenizer and model from {adapter_path}...")
+    print(f"Loading tokenizer and model from {adapter_path}...", flush=True)
     model_config = get_model_config(model_id, use_thinking=use_thinking)
 
+    print("Loading tokenizer...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
     tokenizer = model_config.setup_tokenizer(tokenizer)
+    print("Tokenizer loaded.", flush=True)
 
     quantization_config = None
     attn_implementation = None
@@ -59,7 +61,7 @@ def load_tokenizer_and_model(
     else:
         target_dtype = torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float16
 
-    print(f"Loading base model weights for {model_id}...")
+    print(f"Loading base model weights for {model_id}...", flush=True)
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map=("cpu" if device == "cpu" else "auto"),
@@ -67,16 +69,16 @@ def load_tokenizer_and_model(
         quantization_config=quantization_config,
         attn_implementation=attn_implementation,
     )
-    print("Base model loaded successfully.")
+    print("Base model loaded successfully.", flush=True)
 
-    print(f"Loading PEFT adapter from {adapter_path}...")
+    print(f"Loading PEFT adapter from {adapter_path}...", flush=True)
     model = PeftModel.from_pretrained(
         base_model, adapter_path, is_trainable=is_trainable
     )
-    print("PEFT adapter loaded and applied successfully.")
+    print("PEFT adapter loaded and applied successfully.", flush=True)
 
     if not is_trainable:
-        print("Setting model to eval mode...")
+        print("Setting model to eval mode...", flush=True)
         model.eval()
     else:
         # Explicitly ensure only the LoRA parameters require gradients

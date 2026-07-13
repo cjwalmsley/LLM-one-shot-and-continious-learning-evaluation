@@ -112,9 +112,9 @@ def evaluate_model(
         adapter_path, model_id, device, use_thinking=use_thinking, return_config=True
     )
 
-    print("load_tokenizer_and_model finished completely.")
+    print("load_tokenizer_and_model finished completely.", flush=True)
 
-    print("Loading dataset...")
+    print("Loading dataset...", flush=True)
     dataset = load_dataset("json", data_files=dataset_path)
     train_dataset = dataset["train"].filter(
         lambda x: x.get("is_pretraining", False) == True

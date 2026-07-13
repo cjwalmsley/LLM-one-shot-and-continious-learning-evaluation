@@ -112,6 +112,8 @@ def evaluate_model(
         adapter_path, model_id, device, use_thinking=use_thinking, return_config=True
     )
 
+    print("load_tokenizer_and_model finished completely.")
+
     print("Loading dataset...")
     dataset = load_dataset("json", data_files=dataset_path)
     train_dataset = dataset["train"].filter(

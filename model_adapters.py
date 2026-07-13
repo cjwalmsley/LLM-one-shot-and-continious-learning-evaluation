@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
+
 class ModelConfig(ABC):
     """Abstract base class for model configurations."""
 
@@ -45,8 +46,9 @@ class ModelConfig(ABC):
 
 class GemmaModelConfig(ModelConfig):
     """Configuration for Gemma models."""
+
     def __init__(self, use_thinking: Optional[bool] = None):
-        super().__init__(use_thinking=False) # Thinking mode not supported
+        super().__init__(use_thinking=False)  # Thinking mode not supported
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -61,16 +63,19 @@ class GemmaModelConfig(ModelConfig):
 
     def setup_tokenizer(self, tokenizer: Any) -> Any:
         tokenizer = super().setup_tokenizer(tokenizer)
-        if getattr(tokenizer, 'chat_template', None) is None:
+        if getattr(tokenizer, "chat_template", None) is None:
             tokenizer.chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\n'}}{% endif %}"
         return tokenizer
 
 
 class DeepSeekModelConfig(ModelConfig):
     """Configuration for DeepSeek models."""
+
     def __init__(self, use_thinking: Optional[bool] = None):
         # DeepSeek R1 models have thinking builtin without a flag, but we allow configuration
-        super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
+        super().__init__(
+            use_thinking=use_thinking if use_thinking is not None else True
+        )
 
     def get_max_new_tokens(self) -> int:
         return 8192 if self.use_thinking else 1024
@@ -86,10 +91,14 @@ class DeepSeekModelConfig(ModelConfig):
             "down_proj",
         ]
 
+
 class QwenModelConfig(ModelConfig):
     """Configuration for Qwen models."""
+
     def __init__(self, use_thinking: Optional[bool] = None):
-        super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
+        super().__init__(
+            use_thinking=use_thinking if use_thinking is not None else True
+        )
 
     def get_max_new_tokens(self) -> int:
         return 8192 if self.use_thinking else 1024
@@ -103,13 +112,38 @@ class QwenModelConfig(ModelConfig):
             "gate_proj",
             "up_proj",
             "down_proj",
+        ]
+
+
+class LFMModelConfig(ModelConfig):
+    """Configuration for LiquidAI LFM models."""
+
+    def __init__(self, use_thinking: Optional[bool] = None):
+        super().__init__(use_thinking=False)
+
+    def get_max_new_tokens(self) -> int:
+        return 1024
+
+    def get_lora_target_modules(self) -> List[str]:
+        return [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "in_proj",
+            "out_proj",
+            "w1",
+            "w2",
+            "w3",
         ]
 
 
 class LlamaModelConfig(ModelConfig):
     """Configuration for Llama models."""
+
     def __init__(self, use_thinking: Optional[bool] = None):
-        super().__init__(use_thinking=use_thinking if use_thinking is not None else False)
+        super().__init__(
+            use_thinking=use_thinking if use_thinking is not None else False
+        )
 
     def get_max_new_tokens(self) -> int:
         return 1024
@@ -127,7 +161,7 @@ class LlamaModelConfig(ModelConfig):
 
     def setup_tokenizer(self, tokenizer: Any) -> Any:
         tokenizer = super().setup_tokenizer(tokenizer)
-        if getattr(tokenizer, 'chat_template', None) is None:
+        if getattr(tokenizer, "chat_template", None) is None:
             # Standard Llama 3 Instruct chat template
             tokenizer.chat_template = (
                 "{% set loop_messages = messages %}"
@@ -161,8 +195,12 @@ def get_model_config(model_id: str, use_thinking: Optional[bool] = None) -> Mode
         return QwenModelConfig(use_thinking=use_thinking)
     elif "deepseek" in model_id_lower:
         return DeepSeekModelConfig(use_thinking=use_thinking)
+    elif "liquidai/lfm2-24b-a2b" in model_id_lower:
+        return LFMModelConfig(use_thinking=use_thinking)
     else:
         # Fallback to a default config or raise an error
         # Assuming Gemma as the default fallback for existing codebase behavior
-        print(f"Warning: No specific config found for {model_id}. Defaulting to Gemma config.")
+        print(
+            f"Warning: No specific config found for {model_id}. Defaulting to Gemma config."
+        )
         return GemmaModelConfig(use_thinking=use_thinking)

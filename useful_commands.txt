@@ -39,7 +39,7 @@ sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R
 
 deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
 
-sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh --model_path "~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google/gemma-4-31B" --dataset_path "~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" --output_dir "~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google/gemma-4-31B" --model_id "google/gemma-4-E2B" --eval_mode "both"
 
 ~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google
 

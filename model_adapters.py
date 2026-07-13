@@ -92,7 +92,7 @@ class QwenModelConfig(ModelConfig):
         super().__init__(use_thinking=use_thinking if use_thinking is not None else True)
 
     def get_max_new_tokens(self) -> int:
-        return 32768 if self.use_thinking else 1024
+        return 8192 if self.use_thinking else 1024
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -103,27 +103,6 @@ class QwenModelConfig(ModelConfig):
             "gate_proj",
             "up_proj",
             "down_proj",
-        ]
-
-
-class LFMModelConfig(ModelConfig):
-    """Configuration for LiquidAI LFM models."""
-    def __init__(self, use_thinking: Optional[bool] = None):
-        super().__init__(use_thinking=False)
-
-    def get_max_new_tokens(self) -> int:
-        return 1024
-
-    def get_lora_target_modules(self) -> List[str]:
-        return [
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "in_proj",
-            "out_proj",
-            "w1",
-            "w2",
-            "w3",
         ]
 
 
@@ -182,8 +161,6 @@ def get_model_config(model_id: str, use_thinking: Optional[bool] = None) -> Mode
         return QwenModelConfig(use_thinking=use_thinking)
     elif "deepseek" in model_id_lower:
         return DeepSeekModelConfig(use_thinking=use_thinking)
-    elif "liquidai/lfm2-24b-a2b" in model_id_lower:
-        return LFMModelConfig(use_thinking=use_thinking)
     else:
         # Fallback to a default config or raise an error
         # Assuming Gemma as the default fallback for existing codebase behavior

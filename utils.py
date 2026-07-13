@@ -44,27 +44,39 @@ def load_tokenizer_and_model(
     quantization_config = None
     attn_implementation = None
     if device != "cpu":
+        # Check for bf16 support dynamically to maintain AMD ROCm and CUDA compatibility
+        compute_dtype = torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float16
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=compute_dtype,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
         attn_implementation = "sdpa"
 
+    if device == "cpu":
+        target_dtype = torch.float32
+    else:
+        target_dtype = torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float16
+
+    print(f"Loading base model weights for {model_id}...")
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map=("cpu" if device == "cpu" else {"": device}),  # Strict GPU mapping
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        torch_dtype=target_dtype,
         quantization_config=quantization_config,
         attn_implementation=attn_implementation,
     )
+    print("Base model loaded successfully.")
 
+    print(f"Loading PEFT adapter from {adapter_path}...")
     model = PeftModel.from_pretrained(
         base_model, adapter_path, is_trainable=is_trainable
     )
+    print("PEFT adapter loaded and applied successfully.")
 
     if not is_trainable:
+        print("Setting model to eval mode...")
         model.eval()
     else:
         # Explicitly ensure only the LoRA parameters require gradients

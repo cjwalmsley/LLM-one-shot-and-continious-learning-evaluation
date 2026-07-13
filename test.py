@@ -518,7 +518,9 @@ def test_model(
     device = get_device()
 
     print("Loading test dataset...")
-    dataset = load_dataset("json", data_files=dataset_path)
+    cache_dir = os.path.join(output_dir, ".cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    dataset = load_dataset("json", data_files=dataset_path, cache_dir=cache_dir)
     test_dataset = dataset["train"].filter(
         lambda x: x.get("is_pretraining", False) == False
     )

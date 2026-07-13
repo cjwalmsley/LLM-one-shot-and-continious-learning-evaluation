@@ -114,7 +114,11 @@ class TestFinetune(unittest.TestCase):
             quantization_config=unittest.mock.ANY,
             attn_implementation="sdpa"
         )
-        mock_load_dataset.assert_called_with("json", data_files="custom_dataset.jsonl")
+        mock_load_dataset.assert_called_with(
+            "json",
+            data_files="custom_dataset.jsonl",
+            cache_dir="./custom-model-id/custom_dataset/.cache"
+        )
 
         mock_trainer_instance.train.assert_called_once()
         mock_trainer_instance.model.save_pretrained.assert_called_once()

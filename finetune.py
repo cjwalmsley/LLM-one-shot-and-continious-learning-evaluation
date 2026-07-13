@@ -199,7 +199,9 @@ def main():
 
     print("Loading and formatting dataset...")
     # Load dataset without specifying split to get all examples
-    dataset = load_dataset("json", data_files=expanded_dataset_path)
+    cache_dir = os.path.join(output_dir, ".cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    dataset = load_dataset("json", data_files=expanded_dataset_path, cache_dir=cache_dir)
     dataset = dataset["train"]  # Get the train split from the loaded dataset
 
     # Split dataset based on is_pretraining flag

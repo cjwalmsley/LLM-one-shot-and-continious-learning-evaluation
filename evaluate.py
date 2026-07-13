@@ -115,7 +115,9 @@ def evaluate_model(
     print("load_tokenizer_and_model finished completely.", flush=True)
 
     print("Loading dataset...", flush=True)
-    dataset = load_dataset("json", data_files=dataset_path)
+    cache_dir = os.path.join(output_dir, ".cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    dataset = load_dataset("json", data_files=dataset_path, cache_dir=cache_dir)
     train_dataset = dataset["train"].filter(
         lambda x: x.get("is_pretraining", False) == True
     )

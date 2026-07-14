@@ -74,11 +74,11 @@ class DeepSeekModelConfig(ModelConfig):
     def __init__(self, use_thinking: Optional[bool] = None):
         # DeepSeek R1 models have thinking builtin without a flag, but we allow configuration
         super().__init__(
-            use_thinking=use_thinking if use_thinking is not None else True
+            use_thinking=use_thinking if use_thinking is not None else False
         )
 
     def get_max_new_tokens(self) -> int:
-        return 8192 if self.use_thinking else 1024
+        return 8192 if self.use_thinking else 150
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -97,11 +97,11 @@ class QwenModelConfig(ModelConfig):
 
     def __init__(self, use_thinking: Optional[bool] = None):
         super().__init__(
-            use_thinking=use_thinking if use_thinking is not None else True
+            use_thinking=use_thinking if use_thinking is not None else False
         )
 
     def get_max_new_tokens(self) -> int:
-        return 8192 if self.use_thinking else 1024
+        return 8192 if self.use_thinking else 150
 
     def get_lora_target_modules(self) -> List[str]:
         return [
@@ -146,7 +146,7 @@ class LlamaModelConfig(ModelConfig):
         )
 
     def get_max_new_tokens(self) -> int:
-        return 1024
+        return 1024 if self.use_thinking else 150
 
     def get_lora_target_modules(self) -> List[str]:
         return [

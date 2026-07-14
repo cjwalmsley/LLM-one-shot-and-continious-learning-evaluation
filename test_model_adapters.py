@@ -20,8 +20,8 @@ class TestModelAdapters(unittest.TestCase):
     def test_get_deepseek_config(self):
         config = get_model_config("deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         self.assertIsInstance(config, DeepSeekModelConfig)
-        self.assertTrue(config.use_thinking)
-        self.assertEqual(config.get_max_new_tokens(), 8192)
+        self.assertFalse(config.use_thinking)
+        self.assertEqual(config.get_max_new_tokens(), 150)
 
     def test_get_deepseek_distill_qwen_config(self):
         config = get_model_config("deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
@@ -30,19 +30,19 @@ class TestModelAdapters(unittest.TestCase):
     def test_get_qwq_config(self):
         config = get_model_config("Qwen/QwQ-32B")
         self.assertIsInstance(config, QwenModelConfig)
-        self.assertTrue(config.use_thinking)
-        self.assertEqual(config.get_max_new_tokens(), 8192)
+        self.assertFalse(config.use_thinking)
+        self.assertEqual(config.get_max_new_tokens(), 150)
 
-        # Test overriding use_thinking
-        config_no_think = get_model_config("Qwen/QwQ-32B", use_thinking=False)
-        self.assertFalse(config_no_think.use_thinking)
-        self.assertEqual(config_no_think.get_max_new_tokens(), 1024)
+        # Test overriding use_thinking to True
+        config_think = get_model_config("Qwen/QwQ-32B", use_thinking=True)
+        self.assertTrue(config_think.use_thinking)
+        self.assertEqual(config_think.get_max_new_tokens(), 8192)
 
     def test_get_llama_config(self):
         config = get_model_config("meta-llama/Llama-3.1-8B")
         self.assertIsInstance(config, LlamaModelConfig)
         self.assertFalse(config.use_thinking)
-        self.assertEqual(config.get_max_new_tokens(), 1024)
+        self.assertEqual(config.get_max_new_tokens(), 150)
 
         # Test target modules exist
         self.assertIn("q_proj", config.get_lora_target_modules())

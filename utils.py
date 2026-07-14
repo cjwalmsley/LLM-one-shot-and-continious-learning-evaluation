@@ -5,6 +5,20 @@ from peft import PeftModel
 from rapidfuzz import fuzz
 from model_adapters import get_model_config
 
+# Monkey-patch WeightConverter to maintain compatibility between PEFT and Transformers
+try:
+    from transformers.core_model_loading import WeightConverter
+
+    _original_init = WeightConverter.__init__
+    def _patched_init(self, *args, **kwargs):
+        kwargs.pop("distributed_operation", None)
+        kwargs.pop("quantization_operation", None)
+        return _original_init(self, *args, **kwargs)
+
+    WeightConverter.__init__ = _patched_init
+except ImportError:
+    pass
+
 
 def get_device():
     """Detect and return the appropriate device (AMD ROCm compatible)."""

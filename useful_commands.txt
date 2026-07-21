@@ -26,7 +26,9 @@ sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R
 
 ~/PycharmProjects/Training-and-evaluating-cognitive-language-models/shell_scripts/generate_database_folds.sh sample_dataset.jsonl 3
 
-sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh LiquidAI/LFM2.5-8B-A1B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh LiquidAI/LFM2.5-8B-A1B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/nyc_squad_with_pretraining_commands.jsonl 107
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh Qwen/QwQ-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl 107
 
 mkdir -p ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"
 rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/ ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"

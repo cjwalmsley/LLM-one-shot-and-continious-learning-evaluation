@@ -11,6 +11,7 @@ from trl import SFTTrainer, SFTConfig
 import argparse
 import os
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 # Set PyTorch CUDA allocation configuration to avoid fragmentation before importing torch
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -212,10 +213,21 @@ def main():
     print(f"Training dataset size: {len(train_dataset)}")
     print(f"Test dataset size: {len(test_dataset)}")
 
-    # Map the formatting function to both datasets
+    # Further split the training dataset to create a 25% validation split
+    print("Creating a 25% validation split from the training data...")
+    split_dataset = train_dataset.train_test_split(test_size=0.25, seed=42)
+    train_dataset = split_dataset["train"]
+    eval_dataset = split_dataset["test"]
+
+    print(f"Final training dataset size: {len(train_dataset)}")
+    print(f"Validation dataset size: {len(eval_dataset)}")
+    print(f"Test dataset size: {len(test_dataset)}")
+
+    # Map the formatting function to all datasets
     train_dataset = train_dataset.map(
         lambda x: model_config.format_prompt(x, tokenizer)
     )
+    eval_dataset = eval_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
     test_dataset = test_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
@@ -244,6 +256,8 @@ def main():
         bf16=use_bf16,
         fp16=use_fp16,
         logging_steps=10,
+        eval_strategy="steps",
+        eval_steps=10,
         optim="adamw_torch",  # Uses native PyTorch AdamW instead of CUDA bnb optimizer
         save_strategy="epoch",
         save_total_limit=1,
@@ -257,7 +271,7 @@ def main():
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
-        eval_dataset=None,
+        eval_dataset=eval_dataset,
         peft_config=peft_config,
         processing_class=tokenizer,
         args=training_args,
@@ -273,6 +287,40 @@ def main():
     trainer.model.save_pretrained(f"{expanded_output_dir}/final-adapter")
     tokenizer.save_pretrained(f"{expanded_output_dir}/final-adapter")
     print("Done!")
+
+    print("Extracting metrics and plotting loss curve...")
+
+    history = trainer.state.log_history
+    train_steps = []
+    train_loss = []
+    eval_steps = []
+    eval_loss = []
+
+    for entry in history:
+        if "loss" in entry and "step" in entry:
+            train_steps.append(entry["step"])
+            train_loss.append(entry["loss"])
+        elif "eval_loss" in entry and "step" in entry:
+            eval_steps.append(entry["step"])
+            eval_loss.append(entry["eval_loss"])
+
+    if train_steps or eval_steps:
+        plt.figure(figsize=(10, 6))
+        if train_steps:
+            plt.plot(train_steps, train_loss, label="Training Loss")
+        if eval_steps:
+            plt.plot(eval_steps, eval_loss, label="Validation Loss")
+
+        plt.xlabel("Steps")
+        plt.ylabel("Loss")
+        plt.title("Training and Validation Loss Curve")
+        plt.legend()
+        plt.grid(True)
+
+        plot_path = os.path.join(expanded_output_dir, "loss_curve.png")
+        plt.savefig(plot_path)
+        plt.close()
+        print(f"Loss curve saved to {plot_path}")
 
     print("Tearing down training graph to free VRAM for evaluation...")
     del trainer

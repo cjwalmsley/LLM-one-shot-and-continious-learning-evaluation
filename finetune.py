@@ -104,6 +104,12 @@ def main():
         default=None,
         help="Batch size to use for evaluation and testing. If not provided, it is dynamically determined.",
     )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=5,
+        help="Number of training epochs. Default is 5.",
+    )
     args = parser.parse_args()
 
     use_thinking = (
@@ -251,7 +257,7 @@ def main():
         gradient_accumulation_steps=4,
         warmup_ratio=0.1,
         # max_steps=200,
-        num_train_epochs=5,
+        num_train_epochs=args.epochs,
         learning_rate=2e-4,
         bf16=use_bf16,
         fp16=use_fp16,

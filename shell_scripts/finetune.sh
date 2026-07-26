@@ -21,6 +21,6 @@ fi
 #./finetune.sh --experiment "my_experiment"
 
 # Combine multiple parameters
-#./finetune.sh --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl" --experiment "my_experiment"
+#./finetune.sh --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl" --experiment "my_experiment" --epochs 10
 
 "$PYTHON_BIN" "$ROOT_DIR/finetune.py" "$@"

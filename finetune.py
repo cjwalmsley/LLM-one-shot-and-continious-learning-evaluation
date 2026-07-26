@@ -110,6 +110,11 @@ def main():
         default=5,
         help="Number of training epochs. Default is 5.",
     )
+    parser.add_argument(
+        "--perform_validation",
+        action="store_true",
+        help="Whether to create a validation split and perform validation during training",
+    )
     args = parser.parse_args()
 
     use_thinking = (
@@ -219,21 +224,27 @@ def main():
     print(f"Training dataset size: {len(train_dataset)}")
     print(f"Test dataset size: {len(test_dataset)}")
 
-    # Further split the training dataset to create a 25% validation split
-    print("Creating a 25% validation split from the training data...")
-    split_dataset = train_dataset.train_test_split(test_size=0.25, seed=42)
-    train_dataset = split_dataset["train"]
-    eval_dataset = split_dataset["test"]
+    # Further split the training dataset to create a 25% validation split if perform_validation is true
+    if args.perform_validation:
+        print("Creating a 25% validation split from the training data...")
+        split_dataset = train_dataset.train_test_split(test_size=0.25, seed=42)
+        train_dataset = split_dataset["train"]
+        eval_dataset = split_dataset["test"]
+        print(f"Final training dataset size: {len(train_dataset)}")
+        print(f"Validation dataset size: {len(eval_dataset)}")
+    else:
+        print("Skipping validation split creation...")
+        eval_dataset = None
+        print(f"Final training dataset size: {len(train_dataset)}")
 
-    print(f"Final training dataset size: {len(train_dataset)}")
-    print(f"Validation dataset size: {len(eval_dataset)}")
     print(f"Test dataset size: {len(test_dataset)}")
 
     # Map the formatting function to all datasets
     train_dataset = train_dataset.map(
         lambda x: model_config.format_prompt(x, tokenizer)
     )
-    eval_dataset = eval_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
+    if eval_dataset is not None:
+        eval_dataset = eval_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
     test_dataset = test_dataset.map(lambda x: model_config.format_prompt(x, tokenizer))
 
     print("Setting up training arguments...")
@@ -251,27 +262,32 @@ def main():
 
     print(f"Using bf16: {use_bf16}, fp16: {use_fp16}")
 
-    training_args = SFTConfig(
-        output_dir=expanded_output_dir,
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=4,
-        warmup_ratio=0.1,
-        # max_steps=200,
-        num_train_epochs=args.epochs,
-        learning_rate=2e-4,
-        bf16=use_bf16,
-        fp16=use_fp16,
-        logging_steps=10,
-        eval_strategy="steps",
-        eval_steps=10,
-        optim="adamw_torch",  # Uses native PyTorch AdamW instead of CUDA bnb optimizer
-        save_strategy="epoch",
-        save_total_limit=1,
-        dataloader_num_workers=4,  # Pre-fetches data tokens via CPU threads
-        report_to="none",
-        dataset_text_field="text",
-        max_length=1024,
-    )
+    training_args_kwargs = {
+        "output_dir": expanded_output_dir,
+        "per_device_train_batch_size": 2,
+        "gradient_accumulation_steps": 4,
+        "warmup_ratio": 0.1,
+        "num_train_epochs": args.epochs,
+        "learning_rate": 2e-4,
+        "bf16": use_bf16,
+        "fp16": use_fp16,
+        "logging_steps": 10,
+        "optim": "adamw_torch",  # Uses native PyTorch AdamW instead of CUDA bnb optimizer
+        "save_strategy": "epoch",
+        "save_total_limit": 1,
+        "dataloader_num_workers": 4,  # Pre-fetches data tokens via CPU threads
+        "report_to": "none",
+        "dataset_text_field": "text",
+        "max_length": 1024,
+    }
+
+    if args.perform_validation:
+        training_args_kwargs["eval_strategy"] = "steps"
+        training_args_kwargs["eval_steps"] = 10
+    else:
+        training_args_kwargs["eval_strategy"] = "no"
+
+    training_args = SFTConfig(**training_args_kwargs)
 
     print("Initializing SFTTrainer...")
     trainer = SFTTrainer(

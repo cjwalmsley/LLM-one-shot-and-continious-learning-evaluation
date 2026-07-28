@@ -48,6 +48,7 @@ class TestFinetune(unittest.TestCase):
             "custom-model-id",
             "--dataset_path",
             "custom_dataset.jsonl",
+            "--perform_validation",
         ],
     )
     @patch("finetune.load_dotenv")

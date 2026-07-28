@@ -23,4 +23,7 @@ fi
 # Combine multiple parameters
 #./finetune.sh --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl" --experiment "my_experiment" --epochs 10
 
+# Perform validation during training
+#./finetune.sh --model_id "meta-llama/Meta-Llama-3-8B" --dataset_path "custom_data.jsonl" --perform_validation
+
 "$PYTHON_BIN" "$ROOT_DIR/finetune.py" "$@"

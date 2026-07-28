@@ -143,3 +143,7 @@ rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluat
 
 
 mkdir -p "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/107_fold_2/llm_comparison/finetune/"
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/3/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/loss_curve.png "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/107_fold_2/llm_comparison/finetune/loss_curve_3_epochs.png"
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/llm_test_results_all_from_hydra.csv "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/collated_results/llm_test_results_all_from_hydra_2.csv"

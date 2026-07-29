@@ -48,6 +48,12 @@ def collate_results(base_dir=DEFAULT_BASE_DIR):
     for root, dirs, files in os.walk(base_dir):
         for file in files:
             if file in ['evaluation_summary.json', 'test_summary.json']:
+                parent_dir_name = os.path.basename(root)
+                if file == 'evaluation_summary.json' and parent_dir_name != 'evaluation':
+                    continue
+                if file == 'test_summary.json' and parent_dir_name != 'testing':
+                    continue
+
                 file_path = os.path.join(root, file)
                 # The fold directory is typically the parent or grandparent
                 # Let's find the fold directory by going up until we find a directory with 'fold_' in it

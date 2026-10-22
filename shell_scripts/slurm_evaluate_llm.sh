@@ -26,6 +26,17 @@ echo "Running with OUTPUT_DIR: $OUTPUT_DIR"
 echo "Running with MODEL_ID: $MODEL_ID"
 echo "Running with EVAL_MODE: $EVAL_MODE"
 
-python /home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/evaluate.py --model_path "$MODEL_PATH" --dataset_path "$DATASET_PATH" --output_dir "$OUTPUT_DIR" --model_id "$MODEL_ID" --eval_mode "$EVAL_MODE"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Override from yaml if config exists
+if [ -f "$REPO_ROOT/configs/default.yaml" ]; then
+    YAML_ROOT=$(grep -E "^repo_root:" "$REPO_ROOT/configs/default.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
+    if [ -n "$YAML_ROOT" ]; then
+        REPO_ROOT=$(python3 -c "import os; print(os.path.expanduser('$YAML_ROOT'))")
+    fi
+fi
+
+python "$REPO_ROOT/evaluate.py" --model_path "$MODEL_PATH" --dataset_path "$DATASET_PATH" --output_dir "$OUTPUT_DIR" --model_id "$MODEL_ID" --eval_mode "$EVAL_MODE"
 
 echo "Script execution finished."

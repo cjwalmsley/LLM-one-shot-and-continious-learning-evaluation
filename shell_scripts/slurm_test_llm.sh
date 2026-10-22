@@ -30,8 +30,19 @@ echo "Running with BATCH_SIZE: $BATCH_SIZE"
 echo "Running with USE_THINKING: $USE_THINKING"
 echo "Running with DISABLE_THINKING: $DISABLE_THINKING"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Override from yaml if config exists
+if [ -f "$REPO_ROOT/configs/default.yaml" ]; then
+    YAML_ROOT=$(grep -E "^repo_root:" "$REPO_ROOT/configs/default.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
+    if [ -n "$YAML_ROOT" ]; then
+        REPO_ROOT=$(python3 -c "import os; print(os.path.expanduser('$YAML_ROOT'))")
+    fi
+fi
+
 # Construct the command
-CMD="python /home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/test.py --model_path \"$MODEL_PATH\" --dataset_path \"$DATASET_PATH\" --output_dir \"$OUTPUT_DIR\" --model_id \"$MODEL_ID\" --batch_size \"$BATCH_SIZE\""
+CMD="python \"$REPO_ROOT/test.py\" --model_path \"$MODEL_PATH\" --dataset_path \"$DATASET_PATH\" --output_dir \"$OUTPUT_DIR\" --model_id \"$MODEL_ID\" --batch_size \"$BATCH_SIZE\""
 
 if [ "$USE_THINKING" == "true" ] || [ "$USE_THINKING" == "1" ]; then
     CMD="$CMD --use_thinking"

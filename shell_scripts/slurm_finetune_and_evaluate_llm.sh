@@ -25,7 +25,18 @@ fi
 echo "Running with EPOCHS: $EPOCHS"
 echo "Running with PERFORM_VALIDATION: $PERFORM_VALIDATION"
 
-CMD=(python /home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/finetune.py --model_id "$MODEL_ID" --dataset_path "$DATASET_PATH" --epochs "$EPOCHS")
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Override from yaml if config exists
+if [ -f "$REPO_ROOT/configs/default.yaml" ]; then
+    YAML_ROOT=$(grep -E "^repo_root:" "$REPO_ROOT/configs/default.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
+    if [ -n "$YAML_ROOT" ]; then
+        REPO_ROOT=$(python3 -c "import os; print(os.path.expanduser('$YAML_ROOT'))")
+    fi
+fi
+
+CMD=(python "$REPO_ROOT/finetune.py" --model_id "$MODEL_ID" --dataset_path "$DATASET_PATH" --epochs "$EPOCHS")
 
 if [ -n "$EXPERIMENT" ]; then
     CMD+=(--experiment "$EXPERIMENT")

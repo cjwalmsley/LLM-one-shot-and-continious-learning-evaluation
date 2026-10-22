@@ -3,8 +3,9 @@ import json
 import re
 import pandas as pd
 from pathlib import Path
+from paths import REPO_ROOT
 
-DEFAULT_BASE_DIR = "/home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/experiments"
+DEFAULT_BASE_DIR = str(REPO_ROOT / "experiments")
 
 def flatten_dict(d, parent_key='', sep='_'):
     items = []

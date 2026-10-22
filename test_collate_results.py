@@ -24,7 +24,7 @@ class TestCollateResults(unittest.TestCase):
           "timestamp": "2026-07-06T15:07:13.158903",
           "device": "cuda",
           "model_path": "./experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1",
-          "dataset_path": "/home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl",
+          "dataset_path": "./experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl",
           "total_samples": 366,
           "batch_size": 2,
           "base_model": {

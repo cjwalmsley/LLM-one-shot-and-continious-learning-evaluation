@@ -25,7 +25,24 @@ fi
 echo "Running with EPOCHS: $EPOCHS"
 echo "Running with PERFORM_VALIDATION: $PERFORM_VALIDATION"
 
-CMD=(python /home/bwc/cjw81/LLM-one-shot-and-continious-learning-evaluation/finetune.py --model_id "$MODEL_ID" --dataset_path "$DATASET_PATH" --epochs "$EPOCHS")
+# When running via SLURM, the script runs from a temporary spool dir, so BASH_SOURCE[0] is unreliable.
+# Use SLURM_SUBMIT_DIR which points to where `sbatch` was called (expected to be the repo root).
+if [ -n "$SLURM_SUBMIT_DIR" ]; then
+    REPO_ROOT="$SLURM_SUBMIT_DIR"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
+
+# Override from yaml if config exists
+if [ -f "$REPO_ROOT/configs/default.yaml" ]; then
+    YAML_ROOT=$(grep -E "^repo_root:" "$REPO_ROOT/configs/default.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
+    if [ -n "$YAML_ROOT" ]; then
+        REPO_ROOT=$(python3 -c "import os; print(os.path.expanduser('$YAML_ROOT'))")
+    fi
+fi
+
+CMD=(python "$REPO_ROOT/finetune.py" --model_id "$MODEL_ID" --dataset_path "$DATASET_PATH" --epochs "$EPOCHS")
 
 if [ -n "$EXPERIMENT" ]; then
     CMD+=(--experiment "$EXPERIMENT")

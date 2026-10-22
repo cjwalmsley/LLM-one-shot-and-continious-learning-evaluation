@@ -42,7 +42,7 @@ JSONL dataset ──► finetune.py ──► {output_dir}/final-adapter/   (LoR
 | `utils.py` | Shared: `get_device()`, `load_tokenizer_and_model()`, `generate_batch_responses()`, `generate_single_response()`, `exact_match()`, `fuzzy_match()`. Also a `WeightConverter` monkey-patch for PEFT/Transformers compatibility. |
 | `model_adapters.py` | Per-model-family strategy classes (`ModelConfig` ABC + Gemma/Llama/Qwen/DeepSeek/LFM). The `get_model_config(model_id)` factory selects one by substring match. |
 | `collate_results.py` | Walks `experiments/` and flattens every `evaluation/evaluation_summary.json` and `testing/test_summary.json` into one CSV row per fold. |
-| `shell_scripts/` | Local wrappers (`finetune.sh`, `evaluate.sh` use `./.venv/bin/python`). SLURM jobs for the Kent **hydra** cluster (`slurm_*.sh`, conda env `venv_llm`, hard-coded `/home/bwc/cjw81/...` paths). |
+| `shell_scripts/` | Local wrappers (`finetune.sh`, `evaluate.sh` use `./.venv/bin/python`). SLURM jobs for the Kent **hydra** cluster (`slurm_*.sh`, conda env `venv_llm`). Paths resolve relatively or via `configs/default.yaml` override. |
 | `test_*.py` | Unit tests (`unittest` + `unittest.mock`). |
 | `useful_commands.txt` | Personal log of real `sbatch`/`rsync` invocations per experiment. Use it for examples, but do not edit it unless asked. |
 
@@ -183,7 +183,7 @@ sbatch ./shell_scripts/slurm_test_llm.sh <model_path> <dataset.jsonl> <output_di
 - Errors in post-training evaluation/testing are caught and printed as warnings, so a "successful" `finetune.py` run
   can still be missing `evaluation/` or `testing/` outputs.
 - In `finetune.py`, `PYTORCH_CUDA_ALLOC_CONF` is set *after* `import torch` (it is correct in `evaluate.py` and `test.py`).
-- `collate_results.DEFAULT_BASE_DIR` and all `slurm_*.sh` scripts hard-code `/home/bwc/cjw81/...`.
+- `collate_results.DEFAULT_BASE_DIR` and all `slurm_*.sh` scripts resolve paths dynamically relative to the script location, but can be overridden by providing `repo_root:` in `configs/default.yaml`.
 - `.env` holds `HF_TOKEN` and is **not** in `.gitignore`. Never commit it. Run artefacts (`fold_*/`, `experiments/`,
   model output dirs, `test_results.jsonl`) are also untracked and should stay out of git.
 

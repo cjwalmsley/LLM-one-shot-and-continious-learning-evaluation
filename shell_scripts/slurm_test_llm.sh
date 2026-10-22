@@ -30,8 +30,14 @@ echo "Running with BATCH_SIZE: $BATCH_SIZE"
 echo "Running with USE_THINKING: $USE_THINKING"
 echo "Running with DISABLE_THINKING: $DISABLE_THINKING"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+# When running via SLURM, the script runs from a temporary spool dir, so BASH_SOURCE[0] is unreliable.
+# Use SLURM_SUBMIT_DIR which points to where `sbatch` was called (expected to be the repo root).
+if [ -n "$SLURM_SUBMIT_DIR" ]; then
+    REPO_ROOT="$SLURM_SUBMIT_DIR"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
 
 # Override from yaml if config exists
 if [ -f "$REPO_ROOT/configs/default.yaml" ]; then

@@ -1,12 +1,4 @@
-transformers
-datasets
-peft
-trl
-accelerate
-python-dotenv
-rapidfuzz
-bitsandbytes
-flash-attn
-matplotlib
-#pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.2
-pyyaml
+#Use architecture specific requirements files.
+# - requirements_nvidia.txt for NVIDIA GPUs
+# - requirements_rocm.txt for AMD GPUs
+# - requirements_mac_amd.txt for Apple Silicon systems

@@ -1,0 +1,149 @@
+dataset_path="/home/ronin/gdrive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/84/data_sets/squad_dataset_with_generated_sentences.jsonl"
+model_path ="google/gemma-4-E2B"
+
+
+python test.py \
+  --model_path gemma4-qa-finetune \
+  --dataset_path sample_dataset.jsonl \
+  --output_dir test_results \
+  --model_id google/gemma-4-E2B
+
+
+#Running on slurm
+#1 copy the dataset to the relevant directory
+
+rsync -avP ~/"gdrive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl" cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/
+
+#2 launch the slurm script
+cd ~/LLM-one-shot-and-continious-learning-evaluation
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
+
+#3 copy results to gdrive
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/google/gemma-4-31B ~/"gdrive/PhD/work/annabell/experiments/95/llm_comparison/finetune/google"
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/95/data_sets/nyc_squad_with_pretraining_commands.jsonl 95
+
+~/PycharmProjects/Training-and-evaluating-cognitive-language-models/shell_scripts/generate_database_folds.sh sample_dataset.jsonl 3
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh LiquidAI/LFM2.5-8B-A1B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/nyc_squad_with_pretraining_commands.jsonl 107
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh Qwen/QwQ-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl 107
+
+mkdir -p ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/ ~/"gdrive/PhD/work/annabell/experiments/101_fold_1/datasets"
+
+deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh google/gemma-4-31B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl 101
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl 101
+
+deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+
+~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google/gemma-4-31B ~/"gdrive/PhD/work/annabell/experiments/101/llm_comparison/finetune/google"
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google/gemma-4-31B "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/101/llm_comparison/finetune/google/"
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl 104
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh Qwen/QwQ-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl 104
+
+Qwen/QwQ-32B
+
+#104
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4/evaluation" "Qwen/QwQ-32B" "both"
+
+
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+
+#106
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4/evaluation" "Qwen/QwQ-32B" "both"
+
+#deepseek
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4/evaluation" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+
+
+
+#107
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3/evaluation" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4/evaluation" "Qwen/QwQ-32B" "both"
+
+
+#test only
+# sbatch ./shell_scripts/slurm_test_llm.sh "path/to/model" "path/to/dataset.jsonl" "path/to/output_dir" "model_id_string" "16" "true" "false"
+
+sbatch ./shell_scripts/slurm_test_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1/evaluation" "Qwen/QwQ-32B" "16" "false" "true"
+
+
+
+
+
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/104/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+
+
+
+#106
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/106/deepseek-ai-DeepSeek-R1-Distill-Qwen-32B" "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" "both"
+
+#107
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+sbatch ./shell_scripts/slurm_evaluate_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen-QwQ-32B" "Qwen/QwQ-32B" "both"
+
+
+
+
+
+
+sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh deepseek-ai/DeepSeek-R1-Distill-Qwen-32B ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl
+
+sbatch ./shell_scripts/slurm_test_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/test" "Qwen/QwQ-32B" "16" "false" "true"
+sbatch ./shell_scripts/slurm_test_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_3/nyc_squad_with_pretraining_commands_fold_3.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_3/test" "Qwen/QwQ-32B" "16" "false" "true"
+sbatch ./shell_scripts/slurm_test_llm.sh "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_4/nyc_squad_with_pretraining_commands_fold_4.jsonl" "~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_4/test" "Qwen/QwQ-32B" "16" "false" "true"
+
+
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/101/google/gemma-4-31B ~/"gdrive/PhD/work/annabell/experiments/101/llm_comparison/finetune/google"
+
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/loss_curve.png "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/107_fold_2/llm_comparison/finetune/"
+
+
+mkdir -p "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/107_fold_2/llm_comparison/finetune/"
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/3/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_2/loss_curve.png "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/107_fold_2/llm_comparison/finetune/loss_curve_3_epochs.png"
+
+rsync -avP cjw81@hydra.kent.ac.uk:~/LLM-one-shot-and-continious-learning-evaluation/experiments/llm_test_results_all_from_hydra.csv "/Users/chris/Library/CloudStorage/GoogleDrive-cjameswalmsley@gmail.com/My Drive/Shared with Julia/Education/Kent University/PhD/work/annabell/experiments/collated_results/llm_test_results_all_from_hydra_2.csv"

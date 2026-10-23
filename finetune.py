@@ -71,7 +71,7 @@ def main():
     parser.add_argument(
         "--model_id",
         type=str,
-        default="google/gemma-4-E2B",
+        default="Qwen/Qwen3-0.6B",
         help="The model to be finetuned",
     )
     parser.add_argument(

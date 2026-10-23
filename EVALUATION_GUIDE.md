@@ -66,13 +66,13 @@ python evaluate.py \
   --model_path path/to/trained/model \
   --dataset_path path/to/dataset.jsonl \
   --output_dir evaluation_results \
-  --model_id google/gemma-4-E2B
+  --model_id Qwen/Qwen3-0.6B
 ```
 ### Arguments:
 - `--model_path`: Path to the directory containing the fine-tuned model (required)
 - `--dataset_path`: Path to the JSONL dataset file (required)
 - `--output_dir`: Directory to save evaluation results (default: "evaluation_results")
-- `--model_id`: Base model ID used to load the adapter (default: "google/gemma-4-E2B")
+- `--model_id`: Base model ID used to load the adapter (default: "Qwen/Qwen3-0.6B")
 ## Dataset Format
 The evaluation script expects a JSONL dataset with:
 - `declarative_statement`: Context for the question

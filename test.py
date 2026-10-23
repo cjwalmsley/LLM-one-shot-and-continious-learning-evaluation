@@ -512,7 +512,7 @@ def run_mode_4(
 
 
 def test_model(
-    model_path, dataset_path, output_dir, model_id="google/gemma-4-E2B", batch_size=16, use_thinking=None
+    model_path, dataset_path, output_dir, model_id="Qwen/Qwen3-0.6B", batch_size=16, use_thinking=None
 ):
     """Main testing pipeline executing Modes 1, 2, and 3."""
     device = get_device()
@@ -686,7 +686,7 @@ def main():
         "--output_dir", type=str, default="testing", help="Directory for test results"
     )
     parser.add_argument(
-        "--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID"
+        "--model_id", type=str, default="Qwen/Qwen3-0.6B", help="Base model ID"
     )
     parser.add_argument(
         "--batch_size", type=int, default=16, help="Batch size for inference"

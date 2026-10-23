@@ -29,7 +29,7 @@ JSONL dataset ──► finetune.py ──► {output_dir}/final-adapter/   (LoR
   upstream ANNABELL pipeline. They are ignored here but must be tolerated.
     - `is_pretraining=True` → used for training and for `evaluate.py`.
     - `is_pretraining=False` → held out and used only by `test.py` (the continual-learning probe).
-- **Base model + adapter**: base weights come from HF Hub (`--model_id`, default `google/gemma-4-E2B`). The PEFT
+- **Base model + adapter**: base weights come from HF Hub (`--model_id`, default `Qwen/Qwen3-0.6B`). The PEFT
   adapter is loaded from `{model_path}/final-adapter` via `utils.load_tokenizer_and_model()`.
 
 ## Module map
@@ -147,10 +147,10 @@ python finetune.py --model_id Qwen/QwQ-32B --dataset_path experiments/107/data_s
                    --experiment 107 --epochs 5 --perform_validation
 
 # Standalone evaluation / testing against an existing run dir (must contain final-adapter/)
-python evaluate.py --model_path google-gemma-4-E2B/sample_dataset --dataset_path sample_dataset.jsonl \
-                   --output_dir google-gemma-4-E2B/sample_dataset/evaluation --eval_mode both
-python test.py     --model_path google-gemma-4-E2B/sample_dataset --dataset_path sample_dataset.jsonl \
-                   --output_dir google-gemma-4-E2B/sample_dataset/testing --batch_size 16
+python evaluate.py --model_path Qwen-Qwen3-0.6B/sample_dataset --dataset_path sample_dataset.jsonl \
+                   --output_dir Qwen-Qwen3-0.6B/sample_dataset/evaluation --eval_mode both
+python test.py     --model_path Qwen-Qwen3-0.6B/sample_dataset --dataset_path sample_dataset.jsonl \
+                   --output_dir Qwen-Qwen3-0.6B/sample_dataset/testing --batch_size 16
 
 # Collate all experiment summaries to CSV (default base dir is the hydra path)
 python collate_results.py [base_dir]

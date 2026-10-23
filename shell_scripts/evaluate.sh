@@ -20,7 +20,7 @@ fi
 # Combine multiple parameters
 #./evaluate.sh --model_path "gemma4-qa-finetune" --dataset_path "sample_dataset.jsonl" --output_dir "my_evaluation_results"
 
-#./shell_scripts/evaluate.sh --model_path "google-gemma-4-E2B" --dataset_path "sample_dataset.jsonl" --output_dir "google-gemma-4-E2B" --model_id "google/gemma-4-E2B" --eval_mode "base"
+#./shell_scripts/evaluate.sh --model_path "Qwen-Qwen3-0.6B" --dataset_path "sample_dataset.jsonl" --output_dir "Qwen-Qwen3-0.6B" --model_id "Qwen/Qwen3-0.6B" --eval_mode "base"
 
 
 "$PYTHON_BIN" "$ROOT_DIR/evaluate.py" "$@"

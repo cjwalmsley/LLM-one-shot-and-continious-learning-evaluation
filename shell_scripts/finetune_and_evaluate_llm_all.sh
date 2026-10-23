@@ -18,7 +18,7 @@ if [ ! -x "$PYTHON_BIN" ]; then
 fi
 
 # Define variables for the arguments, using provided parameters or defaults
-MODEL_ID="${1:-google/gemma-4-E2B}"
+MODEL_ID="${1:-Qwen/Qwen3-0.6B}"
 DATASET_PATH="${2:-sample_dataset.jsonl}"
 EXPERIMENT="${3}"
 EPOCHS="${4:-5}"

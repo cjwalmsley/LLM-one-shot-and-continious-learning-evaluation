@@ -165,7 +165,7 @@ class TestRunMode4(unittest.TestCase):
             "/tmp/final-adapter",
             "/tmp/data.jsonl",
             "/tmp/out",
-            "google/gemma-4-E2B",
+            "Qwen/Qwen3-0.6B",
             "cpu",
             mapped_dataset,
             batch_size=2,
@@ -182,7 +182,7 @@ class TestRunMode4(unittest.TestCase):
             [{"role": "user", "content": "Question: Question B?"}],
         ]
         mock_generate_batch.assert_called_once_with(
-            mock_peft_model, mock_tokenizer, expected_messages, "cpu", max_new_tokens=50
+            mock_peft_model, mock_tokenizer, expected_messages, "cpu", max_new_tokens=150
         )
 
 

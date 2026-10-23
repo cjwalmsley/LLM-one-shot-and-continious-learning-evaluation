@@ -14,10 +14,10 @@ conda activate venv_llm
 # sbatch ./shell_scripts/slurm_test_llm.sh "path/to/model" "path/to/dataset.jsonl" "path/to/output_dir" "model_id_string" "16" "true" "false"
 
 # Define variables for the arguments, using provided parameters or defaults
-MODEL_PATH="${1:-google/gemma-4-E2B}"
+MODEL_PATH="${1:-Qwen-Qwen3-0.6B}"
 DATASET_PATH="${2:-sample_dataset.jsonl}"
-OUTPUT_DIR="${3:-google-gemma-4-E2B}"
-MODEL_ID="${4:-google/gemma-4-E2B}"
+OUTPUT_DIR="${3:-Qwen-Qwen3-0.6B}"
+MODEL_ID="${4:-Qwen/Qwen3-0.6B}"
 BATCH_SIZE="${5:-16}"
 USE_THINKING="${6:-}"
 DISABLE_THINKING="${7:-}"

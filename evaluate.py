@@ -98,7 +98,7 @@ def evaluate_model(
     model_path,
     dataset_path,
     output_dir,
-    model_id="google/gemma-4-E2B",
+    model_id="Qwen/Qwen3-0.6B",
     batch_size=16,
     use_thinking=None,
     eval_mode="both",
@@ -248,7 +248,7 @@ def main():
         help="Directory for results",
     )
     parser.add_argument(
-        "--model_id", type=str, default="google/gemma-4-E2B", help="Base model ID"
+        "--model_id", type=str, default="Qwen/Qwen3-0.6B", help="Base model ID"
     )
     parser.add_argument(
         "--batch_size", type=int, default=16, help="Batch size for inference"

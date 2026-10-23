@@ -11,11 +11,11 @@ from model_adapters import (
 
 
 class TestModelAdapters(unittest.TestCase):
-    def test_get_gemma_config(self):
-        config = get_model_config("google/gemma-4-E2B")
-        self.assertIsInstance(config, GemmaModelConfig)
+    def test_get_qwen_config(self):
+        config = get_model_config("Qwen/Qwen3-0.6B")
+        self.assertIsInstance(config, QwenModelConfig)
         self.assertFalse(config.use_thinking)
-        self.assertEqual(config.get_max_new_tokens(), 50)
+        self.assertEqual(config.get_max_new_tokens(), 150)
 
     def test_get_deepseek_config(self):
         config = get_model_config("deepseek-ai/DeepSeek-R1-Distill-Llama-8B")

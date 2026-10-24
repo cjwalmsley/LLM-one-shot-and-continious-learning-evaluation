@@ -1,0 +1,8 @@
+# Example configuration overrides
+# Copy this file to default.yaml and uncomment the options you wish to use
+
+# Override the root repository path
+# repo_root: /path/to/your/repo/root
+
+# Override the base output directory for finetune.py models
+# output_dir: /path/to/your/base/output/directory

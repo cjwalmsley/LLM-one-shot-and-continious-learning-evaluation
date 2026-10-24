@@ -21,6 +21,7 @@ from evaluate import evaluate_model
 from test import test_model
 from model_adapters import get_model_config
 import datetime
+from paths import USER_CONFIG
 
 
 def verify_lora_injection(model):
@@ -141,19 +142,22 @@ def main():
 
     safe_dir_name = model_id.replace("/", "-")
 
+    # Get base output dir from USER_CONFIG or default to "."
+    base_output_dir = USER_CONFIG.get("output_dir", ".")
+
     # if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
     if experiment and not args.dataset_path:
         dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
         output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
     elif experiment and args.dataset_path:
         dataset_path = args.dataset_path
-        output_dir = f"./experiments/{experiment}/{model_id}"
+        output_dir = f"{base_output_dir}/experiments/{experiment}/{model_id}"
     elif not experiment and args.dataset_path:
         dataset_path = args.dataset_path
-        output_dir = f"./{safe_dir_name}"
+        output_dir = f"{base_output_dir}/{safe_dir_name}"
     else:
         dataset_path = "sample_dataset.jsonl"
-        output_dir = f"./{safe_dir_name}"
+        output_dir = f"{base_output_dir}/{safe_dir_name}"
 
     output_dir = f"{output_dir}/{Path(dataset_path).stem}"
 

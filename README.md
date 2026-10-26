@@ -59,7 +59,7 @@ The raw dataset files are hosted on OneDrive:
 
 > **Note:** The link provides read-only public access and does not require a Microsoft login.
 
-Each dataset is a JSONL file with one fact per line. The facts were derived from SQuAD passages by the upstream
+Each dataset is a JSONL file with one fact per line. The facts were derived from passages by the upstream
 ANNABELL pipeline. Required fields:
 
 | Field | Meaning |
@@ -181,7 +181,7 @@ See [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md) for output formats.
 
    # example
    sbatch ./shell_scripts/slurm_finetune_and_evaluate_llm.sh Qwen/QwQ-32B \
-     ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/nyc_squad_with_pretraining_commands_fold_2.jsonl 107
+     ~/LLM-one-shot-and-continious-learning-evaluation/experiments/107/data_sets/fold_2/dataset_with_pretraining_commands_fold_2.jsonl 107
    ```
 
    Without SLURM, call `python finetune.py --model_id <id> --dataset_path <file> --experiment <exp>` directly (or

@@ -12,7 +12,7 @@ class TestCollateResults(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
 
         # Setup experiment 104
-        self.exp_dir = os.path.join(self.test_dir, "104", "Qwen", "QwQ-32B", "nyc_squad_with_pretraining_commands_fold_1")
+        self.exp_dir = os.path.join(self.test_dir, "104", "Qwen", "QwQ-32B", "dataset_with_pretraining_commands_fold_1")
         self.eval_dir = os.path.join(self.exp_dir, "evaluation")
         self.test_subdir = os.path.join(self.exp_dir, "testing")
 
@@ -23,8 +23,8 @@ class TestCollateResults(unittest.TestCase):
         eval_data = {
           "timestamp": "2026-07-06T15:07:13.158903",
           "device": "cuda",
-          "model_path": "./experiments/104/Qwen/QwQ-32B/nyc_squad_with_pretraining_commands_fold_1",
-          "dataset_path": "./experiments/104/data_sets/fold_1/nyc_squad_with_pretraining_commands_fold_1.jsonl",
+          "model_path": "./experiments/104/Qwen/QwQ-32B/dataset_with_pretraining_commands_fold_1",
+          "dataset_path": "./experiments/104/data_sets/fold_1/dataset_with_pretraining_commands_fold_1.jsonl",
           "total_samples": 366,
           "batch_size": 2,
           "base_model": {

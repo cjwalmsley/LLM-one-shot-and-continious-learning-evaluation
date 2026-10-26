@@ -86,7 +86,7 @@ Only samples with `is_pretraining=True` are used for evaluation.
 EVALUATION SUMMARY
 ============================================================
 Model Path: gemma4-qa-finetune
-Dataset Path: ~/gdrive/PhD/work/annabell/experiments/89/data_sets/squad_dataset_with_generated_sentences.jsonl
+Dataset Path: ~/gdrive/PhD/work/annabell/experiments/89/data_sets/dataset_with_generated_sentences.jsonl
 Total Samples Evaluated: 1488
 ------------------------------------------------------------
 Exact Match Accuracy: 450/1488 (30.24%)

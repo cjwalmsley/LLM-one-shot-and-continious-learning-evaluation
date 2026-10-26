@@ -80,7 +80,7 @@ Per-sample result record: `sample_id, mode, question, ground_truth, predicted, e
 
 | `--experiment` | `--dataset_path` | dataset | output_dir |
 |---|---|---|---|
-| set | unset | `~/gdrive/PhD/work/annabell/experiments/{exp}/data_sets/nyc_squad_with_pretraining_commands.jsonl` | `~/gdrive/PhD/work/annabell/experiments/{exp}/llm_comparison/finetune/{model_id}` |
+| set | unset | `~/gdrive/PhD/work/annabell/experiments/{exp}/data_sets/dataset_with_pretraining_commands.jsonl` | `~/gdrive/PhD/work/annabell/experiments/{exp}/llm_comparison/finetune/{model_id}` |
 | set | set | given | `./experiments/{exp}/{model_id}` (hydra layout) |
 | unset | set | given | `./{model_id with / → -}` |
 | unset | unset | `sample_dataset.jsonl` | `./{model_id with / → -}` |

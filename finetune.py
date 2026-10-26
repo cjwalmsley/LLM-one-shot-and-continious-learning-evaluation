@@ -147,7 +147,7 @@ def main():
 
     # if an experiment name is provided us the default paths for that experiment name. Otherwise, use the provided dataset path.
     if experiment and not args.dataset_path:
-        dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/nyc_squad_with_pretraining_commands.jsonl"
+        dataset_path = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/data_sets/dataset_with_pretraining_commands.jsonl"
         output_dir = f"~/gdrive/PhD/work/annabell/experiments/{experiment}/llm_comparison/finetune/{model_id}"
     elif experiment and args.dataset_path:
         dataset_path = args.dataset_path

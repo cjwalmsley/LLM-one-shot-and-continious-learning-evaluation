@@ -1,0 +1,15 @@
+# Example configuration overrides
+# Copy this file to default.yaml and uncomment the options you wish to use
+
+# Override the root repository path
+# repo_root: /path/to/your/repo/root
+
+# Base directory containing experiment datasets. Include a trailing slash.
+# dataset_dir: /path/to/your/experiments/
+
+# Dataset path below the experiment directory. Include a leading slash.
+# dataset_name: /data_sets/nyc_squad_with_pretraining_commands.jsonl
+
+# Override the base output directory for finetune.py models
+# Include a trailing slash so it can be followed by the experiment name.
+# output_dir: /path/to/your/experiments/

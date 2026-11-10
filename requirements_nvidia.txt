@@ -1,0 +1,11 @@
+transformers==5.9.0
+datasets==4.8.5
+peft==0.19.1
+trl==1.5.1
+accelerate==1.13.0
+python-dotenv==1.2.2
+rapidfuzz==3.14.5
+bitsandbytes==0.49.2
+matplotlib==3.11.0
+torch==2.12.0
+pyyaml==6.0.3
